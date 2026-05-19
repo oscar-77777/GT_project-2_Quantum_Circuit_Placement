@@ -1,0 +1,7 @@
+// GT Project2_Literature Review
+
+Topic: Survey on Quantum Placement/Routing and SWAP Insertion with Graph-Theoretic Concepts
+
+Detail: 
+(1) Survey one or more papers on quantum qubit mapping/placement/routing/SWAP insertion, highlighting the graph-theoretic for formulation(e.g., coupling graph, shortest paths, matching, graph traversal, graph embedding, routing on graph, etc.)
+(2) Reproduce the core idea on small designed example

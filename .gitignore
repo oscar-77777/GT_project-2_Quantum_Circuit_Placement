@@ -1,0 +1,98 @@
+# Build output
+implement/build/
+build/
+out/
+bin/
+lib/
+dist/
+
+# Compiled binaries & objects
+*.exe
+*.out
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.pdb
+*.ilk
+*.exp
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+Testing/
+Makefile
+compile_commands.json
+
+# Visual Studio / MSVC
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+x64/
+x86/
+Debug/
+Release/
+*.suo
+*.user
+*.userosscache
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.ipch
+
+# MinGW / GCC
+*.gch
+*.pch
+
+# IDE & editors
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Logs & temp files
+*.log
+*.tmp
+*.temp
+*.bak
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Python (if used for scripts or analysis)
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local AI / editor config
+.claude/
+CLAUDE.md
