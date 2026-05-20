@@ -46,6 +46,6 @@ public:
     static PhysicalEnvironment fromFile(const std::string& path);
 
 private:
-    int nNuclei_;
+    int nNuclei_; // number of nuclei
     std::vector<std::vector<Weight>> W_;   // W_[u][v], W_[u][u] = single-qubit cost
 };
