@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <fstream>
 #include <sstream>
+#include <iostream>
 
 QuantumCircuit::QuantumCircuit(int numQubits)
     : nQubits_(numQubits), nLevels_(0)
@@ -55,14 +56,19 @@ double QuantumCircuit::computeRuntime(const Placement& p, const PhysicalEnvironm
         if (g.type == GateType::Two) {
             NucleusID nt = p.get(g.q1);
             NucleusID nc = p.get(g.q2);
+            if (nt < 0 || nc < 0 || nt >= env.numNuclei() || nc >= env.numNuclei())
+                return 0.0; // guard: unassigned qubit, skip
             double cost = env.twoQubitWeight(nt, nc) * g.time;
             double t = std::max(time[g.q1], time[g.q2]) + cost;
             time[g.q1] = time[g.q2] = t;
         } else {
             NucleusID n = p.get(g.q1);
+            if (n < 0 || n >= env.numNuclei())
+                continue; // guard: unassigned qubit
             time[g.q1] += env.singleQubitWeight(n) * g.time;
         }
     }
+    if (time.empty()) return 0.0;
     return *std::max_element(time.begin(), time.end());
 }
 
@@ -75,11 +81,16 @@ QuantumCircuit QuantumCircuit::fromFile(const std::string& path) {
     std::ifstream f(path);
     if (!f) throw std::runtime_error("Cannot open circuit file: " + path);
 
-    int n; f >> n;
+    // Skip leading comment/blank lines, then read qubit count
+    std::string line;
+    int n = 0;
+    while (std::getline(f, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        std::istringstream ss(line);
+        if (ss >> n) break;
+    }
     QuantumCircuit circ(n);
 
-    std::string line;
-    std::getline(f, line);
     while (std::getline(f, line)) {
         if (line.empty() || line[0] == '#') continue;
         std::istringstream ss(line);

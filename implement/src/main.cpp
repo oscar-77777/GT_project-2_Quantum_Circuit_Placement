@@ -162,9 +162,76 @@ static void verifyExample3() {
     std::cout << "Suboptimal runtime: " << rt2 << "  (target: 770 from Table I)\n";
 }
 
+// ---------------------------------------------------------------------------
+// Table III reproduction — phaseest on trans-crotonic acid (approx. values)
+// ---------------------------------------------------------------------------
+// NOTE: The exact W-values for trans-crotonic acid and the phaseest circuit
+// come from external reference [12] (Knill et al. PRL 86, 5811, 2001) and
+// are NOT in the Maslov et al. PDF.  The .env and .circ files here use
+// approximate literature values (J-couplings from published NMR data).
+// Use this to validate the algorithm logic; exact Table III numbers require
+// the coupling matrix from [12].
+//
+// W-value formulas (derived from paper Fig. 1 acetyl chloride data):
+//   Two-qubit:   W(u,v) = round(10000 / (4 * J_Hz))
+//   Single-qubit: W(u,u) = round(pi * 10000 / |min_chemical_shift_diff_Hz|)
+
+static void runPhaseEstTableIII() {
+    std::cout << "\n=== TABLE III (phaseest, approx. trans-crotonic acid, 7q) ===\n";
+    std::cout << "NOTE: using approximate J-coupling values; see ref [12] for exact data.\n\n";
+
+    const std::vector<Weight> thresholds = {50, 100, 200, 500, 1000, 10000};
+
+    PhysicalEnvironment env  = PhysicalEnvironment::fromFile("data/environments/trans_crotonic_acid.env");
+    QuantumCircuit      circ = QuantumCircuit::fromFile("data/circuits/phaseest.circ");
+
+    // Fastest two-qubit interaction in trans-crotonic acid: W(C2,H1) = 16
+    Weight swapCost = env.twoQubitWeight(1, 4);
+
+    std::cout << std::left << std::setw(16) << "Threshold";
+    for (Weight t : thresholds) std::cout << std::setw(12) << t;
+    std::cout << "\n" << std::string(16 + 12*6, '-') << "\n";
+
+    // Row 1: circuit runtimes (seconds)
+    std::cout << std::setw(16) << "phaseest (s)";
+    for (Weight thr : thresholds) {
+        CircuitPlacer    placer(env, thr);
+        PlacementResult  result = placer.place(circ);
+
+        PermutationRouter router(env, thr);
+        std::vector<SwapCircuit> swaps;
+        for (int i = 0; i + 1 < static_cast<int>(result.placements.size()); ++i)
+            swaps.push_back(router.routeBetween(result.placements[i], result.placements[i+1]));
+
+        double total = placer.totalRuntime(result, swaps, swapCost);
+        std::cout << std::setw(12) << std::fixed << std::setprecision(4) << total / 10000.0;
+    }
+    std::cout << "\n";
+
+    // Row 2: subcircuit counts
+    std::cout << std::setw(16) << "(subcircuits)";
+    for (Weight thr : thresholds) {
+        CircuitPlacer   placer(env, thr);
+        PlacementResult result = placer.place(circ);
+        std::cout << std::setw(12) << result.subcircuits.size();
+    }
+    std::cout << "\n";
+
+    std::cout << "\nPaper Table III target row (7-qubit trans-crotonic acid):\n";
+    std::cout << std::setw(16) << "phaseest (paper)";
+    const char* paperVals[] = {".1636(7)", ".0699(4)", ".0699(4)", ".0700(3)", ".2156(2)", ".1812(1)"};
+    for (const char* v : paperVals) std::cout << std::setw(12) << v;
+    std::cout << "\n";
+}
+
 int main() {
     verifyExample3();
     runTableII();
     runTableIII();
+    try {
+        runPhaseEstTableIII();
+    } catch (const std::exception& e) {
+        std::cerr << "ERROR in runPhaseEstTableIII: " << e.what() << "\n";
+    }
     return 0;
 }

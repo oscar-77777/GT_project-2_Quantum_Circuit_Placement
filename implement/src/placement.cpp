@@ -51,6 +51,8 @@ std::vector<int> Placement::permutationTo(const Placement& next) const {
         NucleusID src  = get(q);
         NucleusID dest = next.get(q);
         if (src == UNASSIGNED || dest == UNASSIGNED) continue;
+        if (src < 0 || src >= nPhysical_ || dest < 0 || dest >= nPhysical_)
+            continue; // guard: out-of-range nucleus
         if (src != dest) perm[dest] = src;
     }
     return perm;

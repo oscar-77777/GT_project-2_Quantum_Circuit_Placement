@@ -1,0 +1,25 @@
+# Error-correction encoding circuit (paper Fig. 2)
+# 3 logical qubits: a=0, b=1, c=2
+# 9 gates total: 5 non-trivial (T>0) + 4 free Rz (T=0)
+#
+# Gate format: type q1 [q2] T level
+#   type=1: single-qubit   type=2: two-qubit
+#
+# Derived from Table I DP trace (verified: optimal runtime=136, suboptimal=770):
+#   Col 0  Y90 on a     (Ry 90°, T=1)
+#   Col 1  ZZ_ab 90°    (two-qubit, T=1)
+#   Col 2  Y90 on c     (Ry 90°, T=1)
+#   Col 3  ZZ_bc 90°    (two-qubit, T=1)
+#   Col 4  Y90 on b     (Ry 90°, T=1)
+#   Col 5  Rz on a,b,c  (T=0, free — changes rotating frame, no wait time)
+#   Col 6  Rz on a      (T=0, second Rz on a)
+3
+1 0 1.0 0
+2 0 1 1.0 1
+1 2 1.0 2
+2 1 2 1.0 3
+1 1 1.0 4
+1 0 0.0 5
+1 1 0.0 5
+1 2 0.0 5
+1 0 0.0 6

@@ -59,12 +59,16 @@ PhysicalEnvironment PhysicalEnvironment::fromFile(const std::string& path) {
     std::ifstream f(path);
     if (!f) throw std::runtime_error("Cannot open environment file: " + path);
 
-    int n;
-    f >> n;
+    // Skip leading comment/blank lines, then read nucleus count
+    std::string line;
+    int n = 0;
+    while (std::getline(f, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        std::istringstream firstSS(line);
+        if (firstSS >> n) break;
+    }
     PhysicalEnvironment env(n);
 
-    std::string line;
-    std::getline(f, line); // consume rest of first line
     while (std::getline(f, line)) {
         if (line.empty() || line[0] == '#') continue;
         std::istringstream ss(line);

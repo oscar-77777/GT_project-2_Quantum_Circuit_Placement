@@ -1,0 +1,66 @@
+# phaseest: 5-qubit quantum phase estimation circuit (NMR implementation)
+# Constructed following Nielsen & Chuang [21] p.221 adapted for liquid-state NMR.
+#
+# Qubits:
+#   q0 = target (eigenstate register)
+#   q1, q2, q3, q4 = counting register (control qubits)
+#
+# Gate types:  1 = single-qubit (Ry/Rz),  2 = two-qubit (ZZ)
+# T values:    T=1 for Ry(90) or ZZ(90),  T=0 for Rz (free gate)
+#              T=2 for ZZ(180), T=4 for ZZ(360), T=0.5 for ZZ(45), etc.
+#
+# Structure:
+#   Phase 1: H = Ry(90) on counting register   [levels 0]
+#   Phase 2: Controlled-U^(2^k) on each qi     [levels 1-4]
+#   Phase 3: Inverse QFT on counting register   [levels 5-11]
+#   Free Rz: phase-frame corrections throughout [T=0]
+#
+# Two-qubit interactions present:
+#   (q1,q0),(q2,q0),(q3,q0),(q4,q0)          [controlled-U gates]
+#   (q3,q4),(q2,q4),(q2,q3)                   [IQFT stage 1]
+#   (q1,q4),(q1,q3),(q1,q2)                   [IQFT stage 2]
+#
+# Interaction graph = K5 (complete on 5 nodes) -> needs rich physical environment
+5
+# --- Phase 1: Initialize counting register (H = Ry(90), T=1) ---
+1 1 1.0 0
+1 2 1.0 0
+1 3 1.0 0
+1 4 1.0 0
+# --- Phase 2: Controlled-U^(2^k) gates ---
+# CU on q1 (ZZ(90), T=1)
+2 1 0 1.0 1
+# CU^2 on q2 (ZZ(180), T=2)
+2 2 0 2.0 2
+# CU^4 on q3 (ZZ(360), T=4)
+2 3 0 4.0 3
+# CU^8 on q4 (ZZ(720), T=8)
+2 4 0 8.0 4
+# Rz frame corrections after controlled-U (T=0, free)
+1 0 0.0 4
+1 1 0.0 4
+1 2 0.0 4
+# --- Phase 3: Inverse QFT on q4, q3, q2, q1 ---
+# Step 1: H on q4
+1 4 1.0 5
+# Step 2: controlled-R2 = ZZ(45) on (q3, q4)
+2 3 4 0.5 6
+# Step 3: H on q3
+1 3 1.0 7
+# Step 4: controlled-R2 and R3 on q2 (two ZZ gates, parallel)
+2 2 4 0.25 8
+2 2 3 0.5 8
+# Step 5: H on q2
+1 2 1.0 9
+# Step 6: controlled-R2, R3, R4 on q1 (three ZZ gates, parallel)
+2 1 4 0.125 10
+2 1 3 0.25 10
+2 1 2 0.5 10
+# Step 7: H on q1
+1 1 1.0 11
+# Final Rz frame corrections (T=0, free)
+1 0 0.0 12
+1 1 0.0 12
+1 2 0.0 12
+1 3 0.0 12
+1 4 0.0 12

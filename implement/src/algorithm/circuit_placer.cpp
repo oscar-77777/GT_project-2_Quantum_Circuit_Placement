@@ -1,48 +1,22 @@
 // ============================================================
-// PARTNER A: Subcircuit Placement Algorithm (Section V-A)
+// Subcircuit Placement Algorithm (Section V-A)
 // ============================================================
-//
-// Algorithm outline (two-stage, iterated until full circuit is placed):
-//
-// Stage 1 — Basic Placement:
-//   - Build "needed graph" N: nodes = logical qubits in current workspace C,
-//     edges = every (q1, q2) pair with a two-qubit gate between them in C.
-//   - Build "fast graph" F: edges of PhysicalEnvironment with W <= threshold.
-//   - Find all graph monomorphisms from N into F (subgraph isomorphism).
-//   - If monomorphisms exist: evaluate runtime for each, keep best.
-//     (For performance, paper limits monomorphism calls to k=100.)
-//   - If none exist: apply hill-climbing over current placement:
-//       for each logical qubit qi in C with a two-qubit gate gj:
-//         try mapping qi to each physical nucleus
-//         keep the assignment that gives the best runtime improvement
-//     Repeat until no improvement or iteration limit reached.
-//
-// Stage 2 — Fine Tuning:
-//   - Shuffle the solution; consider actual single-qubit costs.
-//   - Depth-2 lookahead: for each monomorphism M_i, evaluate current cost
-//     C_{i,j} + min_{next swap S_j} cost(S_j), pick lowest combined cost.
-//
-// After fine tuning, advance gate pointer past the workspace's last gate,
-// record (subcircuit, placement), repeat from Stage 1.
-//
-// Key helper needed: subgraph monomorphism finder — see findMonomorphisms() below.
-// For small graphs (<=12 nodes), backtracking VF2-style is sufficient.
 
 #include "circuit_placer.h"
 #include "swap_circuit.h"
 #include <algorithm>
 #include <numeric>
 #include <cassert>
+#include <limits>
+#include <set>
 
 // ---------------------------------------------------------------------------
-// Internal: simple backtracking subgraph monomorphism
+// Internal: backtracking subgraph monomorphism (VF2-style)
 // ---------------------------------------------------------------------------
-// Finds all injective maps f: patternNodes -> targetNodes
-// such that every edge (u,v) in pattern maps to an edge (f(u),f(v)) in target.
-//
-// patternAdj[u] = list of neighbors of u in the "needed" graph
-// targetAdj[u]  = list of neighbors of u in the "fast" graph
-// Returns list of assignments, each of size patternSize: result[k][i] = f(i).
+// Finds injective maps f: patternNodes -> targetNodes preserving adjacency.
+// patternAdj[u] = neighbors of u in the "needed" graph (logical qubit pairs).
+// targetAdj[u]  = neighbors of u in the "fast" graph (physical nuclei).
+// Returns up to maxResults mappings; result[k][i] = f(i).
 
 namespace {
 
@@ -50,10 +24,10 @@ struct MonoState {
     int                              patternSize;
     const std::vector<std::vector<int>>& patternAdj;
     const std::vector<std::vector<int>>& targetAdj;
-    std::vector<int>                 mapping;   // mapping[pattern_node] = target_node
+    std::vector<int>                 mapping;
     std::vector<bool>                used;
     std::vector<std::vector<int>>    results;
-    int                              maxResults; // cap search
+    int                              maxResults;
 
     void backtrack(int node) {
         if (static_cast<int>(results.size()) >= maxResults) return;
@@ -64,15 +38,12 @@ struct MonoState {
         int targetSize = static_cast<int>(targetAdj.size());
         for (int t = 0; t < targetSize; ++t) {
             if (used[t]) continue;
-            // Check: for all already-mapped neighbors of `node`, edge must exist in target
             bool ok = true;
             for (int prev = 0; prev < node && ok; ++prev) {
-                // Is prev a neighbor of node in pattern?
                 bool neighborInPattern = false;
                 for (int nb : patternAdj[node])
                     if (nb == prev) { neighborInPattern = true; break; }
                 if (!neighborInPattern) continue;
-                // Then mapping[prev] must be neighbor of t in target
                 int tp = mapping[prev];
                 bool neighborInTarget = false;
                 for (int nb : targetAdj[t])
@@ -130,39 +101,116 @@ double CircuitPlacer::totalRuntime(const PlacementResult& result,
 }
 
 // ---------------------------------------------------------------------------
-// TODO (Partner A): implement basicPlacement and fineTuning
+// Stage 1: Basic Placement
 // ---------------------------------------------------------------------------
+// Greedily extend workspace C from startGate, adding two-qubit gates one at a
+// time. After each new logical-qubit interaction pair, check whether a subgraph
+// monomorphism from the interaction graph into the "fast" physical graph exists.
+// Stop when no monomorphism is found; return endGate (exclusive).
+// Pick the monomorphism that minimises actual subcircuit runtime.
 
 int CircuitPlacer::basicPlacement(const QuantumCircuit& circuit, int startGate, Placement& placement) {
-    // TODO:
-    // 1. Iterate gates from startGate, accumulating into workspace C.
-    // 2. After each two-qubit gate addition, rebuild patternAdj from C's two-qubit pairs.
-    // 3. Call findMonomorphisms(patternAdj, fastAdj) where fastAdj = env_.fastAdjacency(threshold_).
-    // 4. If result is empty, stop (return current gate count).
-    // 5. Otherwise continue adding gates.
-    // 6. At the end, evaluate all monomorphisms and pick the one with lowest
-    //    subcircuitRuntime(). Write the best mapping into `placement`.
-    //
-    // Hint: build patternAdj as adjacency over logical qubits seen in C.
-    // Hint: fastAdj is env_.fastAdjacency(threshold_).
-    //
-    // Temporary: identity placement (qubit i -> nucleus i) so stubs don't crash.
-    for (int q = 0; q < circuit.numQubits() && q < env_.numNuclei(); ++q)
-        placement.assign(q, q);
-    return circuit.numGates(); // treat whole circuit as one subcircuit (placeholder)
+    int nQ = circuit.numQubits();
+    int nN = env_.numNuclei();
+    auto fastAdj = env_.fastAdjacency(threshold_);
+
+    std::vector<std::vector<int>> patternAdj(nQ);
+    std::set<std::pair<int,int>>  patternEdgeSet;
+    std::vector<std::vector<int>> bestMonos;
+    int endGate = circuit.numGates(); // default: all gates fit
+
+    for (int g = startGate; g < circuit.numGates(); ++g) {
+        const Gate& gate = circuit.allGates()[g];
+        if (gate.type != GateType::Two) continue;
+
+        int q1 = gate.q1, q2 = gate.q2;
+        auto edge = std::make_pair(std::min(q1, q2), std::max(q1, q2));
+        if (patternEdgeSet.count(edge)) continue; // same pair seen before, no new constraint
+
+        // Tentatively add edge to pattern
+        patternAdj[q1].push_back(q2);
+        patternAdj[q2].push_back(q1);
+        patternEdgeSet.insert(edge);
+
+        auto monos = findMonomorphisms(patternAdj, fastAdj, 100);
+        if (monos.empty()) {
+            // Undo and stop: gate g cannot be embedded → workspace ends at g
+            patternAdj[q1].pop_back();
+            patternAdj[q2].pop_back();
+            patternEdgeSet.erase(edge);
+            endGate = g;
+            break;
+        }
+        bestMonos = monos;
+    }
+
+    // If no two-qubit gates were successfully embedded, fall back to identity
+    if (bestMonos.empty()) {
+        for (int q = 0; q < nQ && q < nN; ++q)
+            placement.assign(q, q);
+        return endGate;
+    }
+
+    // Choose monomorphism with minimum subcircuit runtime
+    QuantumCircuit sub = circuit.subcircuit(startGate, endGate);
+    double bestRuntime = std::numeric_limits<double>::max();
+
+    for (auto& mono : bestMonos) {
+        Placement candidate(nQ, nN);
+        for (int q = 0; q < nQ; ++q)
+            candidate.assign(q, mono[q]);
+        double rt = sub.computeRuntime(candidate, env_);
+        if (rt < bestRuntime) {
+            bestRuntime = rt;
+            placement   = candidate;
+        }
+    }
+    return endGate;
 }
 
+// ---------------------------------------------------------------------------
+// Stage 2: Fine Tuning
+// ---------------------------------------------------------------------------
+// Hill-climbing: repeatedly try reassigning each logical qubit to every
+// physical nucleus; accept if the subcircuit runtime decreases.
+// Terminates when no single-qubit reassignment improves the solution.
+
 void CircuitPlacer::fineTuning(const QuantumCircuit& sub, Placement& placement) {
-    // TODO:
-    // Hill-climbing: for each logical qubit qi that has a two-qubit gate in sub,
-    //   try assigning qi to each physical nucleus nu.
-    //   If the new subcircuitRuntime(sub, modified_placement) is lower, accept.
-    //   Repeat until no improvement.
-    //
-    // Then apply depth-2 lookahead across the k^2 monomorphism pairs
-    // (paper: uses k=100 limit on number of monomorphisms considered).
-    (void)sub; (void)placement;
+    int nQ = sub.numQubits();
+    int nN = env_.numNuclei();
+
+    bool improved = true;
+    while (improved) {
+        improved = false;
+        double curRuntime = sub.computeRuntime(placement, env_);
+
+        for (int qi = 0; qi < nQ; ++qi) {
+            NucleusID orig = placement.get(qi);
+            for (NucleusID nu = 0; nu < nN; ++nu) {
+                if (nu == orig) continue;
+                // Ensure nu is not already used by another qubit
+                bool used = false;
+                for (int qj = 0; qj < nQ && !used; ++qj)
+                    if (qj != qi && placement.get(qj) == nu) used = true;
+                if (used) continue;
+
+                placement.assign(qi, nu);
+                double rt = sub.computeRuntime(placement, env_);
+                if (rt < curRuntime) {
+                    curRuntime = rt;
+                    orig       = nu;
+                    improved   = true;
+                } else {
+                    placement.assign(qi, orig); // revert
+                }
+            }
+        }
+    }
 }
+
+// ---------------------------------------------------------------------------
+// Main placement loop (framework — do not modify)
+// ---------------------------------------------------------------------------
 
 PlacementResult CircuitPlacer::place(const QuantumCircuit& circuit) {
     PlacementResult result;
@@ -174,7 +222,7 @@ PlacementResult CircuitPlacer::place(const QuantumCircuit& circuit) {
         Placement p(circuit.numQubits(), env_.numNuclei());
 
         int endGate = basicPlacement(circuit, startGate, p);
-        if (endGate == startGate) endGate = startGate + 1; // advance at least one gate
+        if (endGate == startGate) endGate = startGate + 1; // always advance
 
         QuantumCircuit sub = circuit.subcircuit(startGate, endGate);
         fineTuning(sub, p);
