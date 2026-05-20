@@ -12,10 +12,12 @@ struct Gate {
 };
 
 // Convenience constructors
+// Single gate: one qubit gate
 inline Gate makeSingleGate(QubitID q, Weight t, int level) {
     return { GateType::Single, q, UNASSIGNED, t, level };
 }
 
+// Two gate: two qubit gate
 inline Gate makeTwoGate(QubitID q1, QubitID q2, Weight t, int level) {
     return { GateType::Two, q1, q2, t, level };
 }
