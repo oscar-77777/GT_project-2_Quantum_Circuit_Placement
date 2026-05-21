@@ -80,6 +80,9 @@ ehthumbs.db
 .env.*
 !.env.example
 
+# Generated figures
+implement/figures/output/
+
 # Python (if used for scripts or analysis)
 __pycache__/
 *.py[cod]
