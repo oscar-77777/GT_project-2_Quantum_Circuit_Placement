@@ -54,8 +54,15 @@ private:
 
     // --- Fine tuning stage ---
     // Hill-climbs the placement to reduce actual runtime.
-    // Shuffles qubit assignments considering single-qubit gate costs.
-    void fineTuning(const QuantumCircuit& sub, Placement& placement);
+    // fullCircuit/nextStart enable depth-2 look-ahead: the next 2 two-qubit gates
+    // after the current subcircuit are penalised by their cost under the candidate
+    // placement, steering the hill-climb toward transitions that need fewer SWAPs.
+    void fineTuning(const QuantumCircuit& sub, Placement& placement,
+                    const QuantumCircuit* fullCircuit = nullptr, int nextStart = 0);
+
+    // Score = runtime(sub, p) + depth-2 look-ahead penalty (next 2 two-qubit gates).
+    double scoreplacement(const QuantumCircuit& sub, const Placement& p,
+                          const QuantumCircuit* fullCircuit, int nextStart) const;
 
     const PhysicalEnvironment& env_;
     Weight threshold_;

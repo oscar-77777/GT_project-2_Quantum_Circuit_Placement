@@ -169,37 +169,70 @@ int CircuitPlacer::basicPlacement(const QuantumCircuit& circuit, int startGate, 
 }
 
 // ---------------------------------------------------------------------------
-// Stage 2: Fine Tuning
+// Depth-2 look-ahead scoring
+// ---------------------------------------------------------------------------
+// Returns runtime(sub, p) + cost of the next 2 two-qubit gates in fullCircuit
+// under placement p.  The extra term steers hill-climbing toward placements that
+// also work well for the immediately following gates, reducing SWAP overhead
+// at subcircuit boundaries.
+// If fullCircuit is null (last subcircuit), falls back to plain runtime.
+
+double CircuitPlacer::scoreplacement(const QuantumCircuit& sub, const Placement& p,
+                                     const QuantumCircuit* fullCircuit, int nextStart) const {
+    double score = sub.computeRuntime(p, env_);
+
+    if (!fullCircuit) return score;
+
+    int lookaheadCount = 0;
+    int total = fullCircuit->numGates();
+    for (int g = nextStart; g < total && lookaheadCount < 2; ++g) {
+        const Gate& gate = fullCircuit->allGates()[g];
+        if (gate.type != GateType::Two) continue;
+        NucleusID n1 = p.get(gate.q1);
+        NucleusID n2 = p.get(gate.q2);
+        if (n1 < 0 || n2 < 0 || n1 >= env_.numNuclei() || n2 >= env_.numNuclei()) continue;
+        // Small penalty for slow next-gate interactions (tiebreaker only, ~0-5% effect).
+        // Scaled to 0.05 so the current subcircuit runtime stays the dominant objective.
+        Weight w = env_.twoQubitWeight(n1, n2);
+        if (w > threshold_) score += 0.05 * w * gate.time;
+        ++lookaheadCount;
+    }
+    return score;
+}
+
+// ---------------------------------------------------------------------------
+// Stage 2: Fine Tuning  (with depth-2 look-ahead)
 // ---------------------------------------------------------------------------
 // Hill-climbing: repeatedly try reassigning each logical qubit to every
-// physical nucleus; accept if the subcircuit runtime decreases.
+// physical nucleus; accept if the score (runtime + look-ahead penalty) decreases.
 // Terminates when no single-qubit reassignment improves the solution.
 
-void CircuitPlacer::fineTuning(const QuantumCircuit& sub, Placement& placement) {
+void CircuitPlacer::fineTuning(const QuantumCircuit& sub, Placement& placement,
+                                const QuantumCircuit* fullCircuit, int nextStart) {
     int nQ = sub.numQubits();
     int nN = env_.numNuclei();
 
     bool improved = true;
     while (improved) {
         improved = false;
-        double curRuntime = sub.computeRuntime(placement, env_);
+        double curScore = scoreplacement(sub, placement, fullCircuit, nextStart);
 
         for (int qi = 0; qi < nQ; ++qi) {
             NucleusID orig = placement.get(qi);
             for (NucleusID nu = 0; nu < nN; ++nu) {
                 if (nu == orig) continue;
                 // Ensure nu is not already used by another qubit
-                bool used = false;
-                for (int qj = 0; qj < nQ && !used; ++qj)
-                    if (qj != qi && placement.get(qj) == nu) used = true;
-                if (used) continue;
+                bool inUse = false;
+                for (int qj = 0; qj < nQ && !inUse; ++qj)
+                    if (qj != qi && placement.get(qj) == nu) inUse = true;
+                if (inUse) continue;
 
                 placement.assign(qi, nu);
-                double rt = sub.computeRuntime(placement, env_);
-                if (rt < curRuntime) {
-                    curRuntime = rt;
-                    orig       = nu;
-                    improved   = true;
+                double sc = scoreplacement(sub, placement, fullCircuit, nextStart);
+                if (sc < curScore) {
+                    curScore = sc;
+                    orig     = nu;
+                    improved = true;
                 } else {
                     placement.assign(qi, orig); // revert
                 }
@@ -225,7 +258,12 @@ PlacementResult CircuitPlacer::place(const QuantumCircuit& circuit) {
         if (endGate == startGate) endGate = startGate + 1; // always advance
 
         QuantumCircuit sub = circuit.subcircuit(startGate, endGate);
-        fineTuning(sub, p);
+
+        // Depth-2 look-ahead: pass full circuit + start of next gates so
+        // fineTuning can penalise placements that are bad for the next subcircuit.
+        // Nullptr on the last subcircuit (no next gates to look ahead into).
+        bool isLast = (endGate >= total);
+        fineTuning(sub, p, isLast ? nullptr : &circuit, endGate);
 
         result.subcircuits.push_back(sub);
         result.placements.push_back(p);
