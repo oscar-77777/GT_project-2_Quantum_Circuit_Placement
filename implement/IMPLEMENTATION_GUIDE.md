@@ -9,13 +9,11 @@ Based on: *Quantum Circuit Placement*, Maslov, Falconer & Mosca, IEEE TCAD 2008.
 1. [專案目標](#1-專案目標)
 2. [整體架構](#2-整體架構)
 3. [檔案結構](#3-檔案結構)
-4. [已完成的部分](#4-已完成的部分)
-5. [Partner A 待實作：Circuit Placement Algorithm](#5-partner-a-待實作circuit-placement-algorithm)
-6. [Partner B 待實作：Fast Permutation Router](#6-partner-b-待實作fast-permutation-router)
-7. [介面對接規範](#7-介面對接規範)
-8. [建置與執行](#8-建置與執行)
-9. [驗證目標（Tables II & III）](#9-驗證目標tables-ii--iii)
-10. [論文關鍵資料整理](#10-論文關鍵資料整理)
+4. [實作內容說明](#4-實作內容說明)
+5. [Bug 修正紀錄](#5-bug-修正紀錄)
+6. [驗證結果](#6-驗證結果)
+7. [建置與執行](#7-建置與執行)
+8. [論文關鍵資料整理](#8-論文關鍵資料整理)
 
 ---
 
@@ -25,7 +23,7 @@ Based on: *Quantum Circuit Placement*, Maslov, Falconer & Mosca, IEEE TCAD 2008.
 
 | 演算法 | 論文章節 | 功能 |
 |---|---|---|
-| **Algorithm** (Subcircuit Placement) | Section V-A | 將電路切成多個 subcircuit，為每個找最佳 logical→physical qubit 對應 |
+| **Subcircuit Placement** | Section V-A | 將電路切成多個 subcircuit，為每個找最佳 logical→physical qubit 對應 |
 | **Fast Permutation Circuits** | Section V-B | 在兩個連續 subcircuit 的 placement 之間，生成用 SWAP gate 實現 permutation 的電路 |
 
 最終電路結構：
@@ -48,7 +46,7 @@ QuantumCircuit + PhysicalEnvironment + Threshold
         │
         ▼
  ┌──────────────────┐
- │  CircuitPlacer   │  ← Partner A 實作
+ │  CircuitPlacer   │  ← Section V-A 實作
  │  (Section V-A)   │
  └──────────────────┘
         │ PlacementResult
@@ -57,7 +55,7 @@ QuantumCircuit + PhysicalEnvironment + Threshold
         ├──────────────────────────────────────────────┐
         ▼                                              ▼
  ┌──────────────────┐                    對每對相鄰 placement
- │ PermutationRouter│  ← Partner B 實作  呼叫 routeBetween()
+ │ PermutationRouter│  ← Section V-B 實作  呼叫 routeBetween()
  │  (Section V-B)   │
  └──────────────────┘
         │ SwapCircuit[]
@@ -93,412 +91,286 @@ return max(time[0..n-1])
 
 ```
 implement/
-├── CMakeLists.txt              ← 建置設定（CMake）
-├── IMPLEMENTATION_GUIDE.md     ← 本文件
+├── CMakeLists.txt
+├── IMPLEMENTATION_GUIDE.md         ← 本文件
 │
-├── include/                    ← 所有 header（兩人共用）
-│   ├── types.h                 ✅ 已完成  QubitID, NucleusID, Weight 等基本型別
-│   ├── gate.h                  ✅ 已完成  Gate struct，makeSingleGate/makeTwoGate
-│   ├── physical_env.h          ✅ 已完成  PhysicalEnvironment 介面
-│   ├── quantum_circuit.h       ✅ 已完成  QuantumCircuit 介面
-│   ├── placement.h             ✅ 已完成  Placement 介面（A、B 的對接點）
-│   ├── swap_circuit.h          ✅ 已完成  SwapCircuit, SwapLevel
-│   ├── circuit_placer.h        ✅ 已完成  PlacementResult + CircuitPlacer 介面（Partner A）
-│   └── permutation_router.h    ✅ 已完成  PermutationRouter 介面（Partner B）
+├── include/                        ← 所有 header（共用）
+│   ├── types.h                     ✅  QubitID, NucleusID, Weight 等基本型別
+│   ├── gate.h                      ✅  Gate struct，makeSingleGate/makeTwoGate
+│   ├── physical_env.h              ✅  PhysicalEnvironment 介面
+│   ├── quantum_circuit.h           ✅  QuantumCircuit 介面
+│   ├── placement.h                 ✅  Placement 介面（A、B 的對接點）
+│   ├── swap_circuit.h              ✅  SwapCircuit, SwapLevel
+│   ├── circuit_placer.h            ✅  PlacementResult + CircuitPlacer 介面
+│   └── permutation_router.h        ✅  PermutationRouter 介面
 │
 ├── src/
-│   ├── physical_env.cpp        ✅ 已完成  完整實作，含 fromFile()
-│   ├── quantum_circuit.cpp     ✅ 已完成  完整實作，含 computeRuntime() DP
-│   ├── placement.cpp           ✅ 已完成  完整實作，含 permutationTo()
-│   ├── swap_circuit.cpp        ✅ 已完成  完整實作，含 apply()
+│   ├── physical_env.cpp            ✅  完整實作，含修正後的 fromFile()
+│   ├── quantum_circuit.cpp         ✅  完整實作，含修正後的 fromFile() 與安全邊界檢查
+│   ├── placement.cpp               ✅  完整實作，含 permutationTo() 邊界保護
+│   ├── swap_circuit.cpp            ✅  完整實作
 │   │
 │   ├── algorithm/
-│   │   └── circuit_placer.cpp  ⚠️  Partner A 待實作
-│   │       框架已搭好；findMonomorphisms() 已寫好；
-│   │       basicPlacement() 和 fineTuning() 只有 stub
+│   │   └── circuit_placer.cpp      ✅  完整實作（Section V-A）
+│   │       basicPlacement()：VF2 式 subgraph monomorphism
+│   │       fineTuning()：hill-climbing 最佳化
 │   │
 │   ├── permutation/
-│   │   └── permutation_router.cpp  ⚠️  Partner B 待實作
-│   │       框架已搭好；routeBetween() 和 route() 已寫好；
-│   │       partition() 和 routeSubgraph() 只有 stub
+│   │   └── permutation_router.cpp  ✅  完整實作（Section V-B）
+│   │       partition()：BFS spanning tree 平衡切割
+│   │       routeSubgraph()：分治 SWAP routing
 │   │
-│   └── main.cpp                ✅ 已完成  驗證框架（Example 3, Table II/III）
+│   └── main.cpp                    ✅  驗證框架（Example 3, Table II/III）
 │
 └── data/
-    └── environments/
-        └── acetyl_chloride.env ✅ 已完成  W 值已驗證（見 Section 10）
+    ├── environments/
+    │   ├── acetyl_chloride.env         ✅  3 個原子核，W 值已驗證
+    │   └── trans_crotonic_acid.env     ✅  7 個原子核，近似 J-coupling 值
+    └── circuits/
+        ├── error_corr_encoding.circ    ✅  3 qubits，9 gates
+        └── phaseest.circ               ✅  5 qubits，26 gates
 ```
 
 ---
 
-## 4. 已完成的部分
+## 4. 實作內容說明
 
-### 4.1 共用資料結構（全部完整實作）
+### 4.1 Circuit Placement Algorithm（Section V-A）
 
-#### `types.h`
-```cpp
-using QubitID   = int;    // 邏輯 qubit 的編號（0-based）
-using NucleusID = int;    // 物理 qubit（原子核）的編號（0-based）
-using Weight    = double; // 時間成本（單位：1/10000 s）
-constexpr NucleusID UNASSIGNED = -1;
-```
+**檔案**：`src/algorithm/circuit_placer.cpp`
 
-#### `gate.h` — Gate struct
-```cpp
-struct Gate {
-    GateType type;   // Single 或 Two
-    QubitID  q1;     // 主 qubit（一定有效）
-    QubitID  q2;     // 次 qubit（只有 Two 時有效，否則 UNASSIGNED）
-    Weight   time;   // T(G)：gate 基礎執行時間
-    int      level;  // 電路層（同一層可並行）
-};
-```
-提供 `makeSingleGate()` 和 `makeTwoGate()` 工廠函數。
+#### `basicPlacement()`
 
-#### `physical_env.h` — PhysicalEnvironment
-已實作的方法：
-- `setTwoQubitWeight(u, v, w)` / `setSingleQubitWeight(u, w)`
-- `twoQubitWeight(u, v)` / `singleQubitWeight(u)` — 查詢 W 值
-- `gateOperatingTime(baseTime, n1, n2)` — 計算 W × T
-- `fastEdges(threshold)` — 回傳所有 W ≤ threshold 的邊
-- `fastAdjacency(threshold)` — 回傳 fast interaction 的 adjacency list
-- `fromFile(path)` — 從 `.env` 檔案載入
-
-#### `placement.h` — Placement
-已實作的方法：
-- `assign(logical, physical)` — 設定映射 P(qᵢ) = νⱼ
-- `get(logical)` — 查詢映射
-- `isValid()` — 檢查是否為 injective（一對一）
-- `permutationTo(next)` — **A→B 對接的關鍵函數**，推導兩個 Placement 之間的 permutation vector
-
-`permutationTo()` 回傳格式：`perm[dest] = src`，代表「目前在 nucleus src 的值，要移到 nucleus dest」。
-
-#### `swap_circuit.h` — SwapCircuit
-已實作的方法：
-- `addLevel(SwapLevel)` — 新增一個 SWAP 層
-- `depth()` — 回傳層數（優化目標，愈少愈好）
-- `apply(state)` — 將 SWAP 電路套用到狀態向量，用於驗證正確性
-
-#### `quantum_circuit.h` — QuantumCircuit
-已實作的方法：
-- `addGate(g)` — 新增 gate
-- `subcircuit(begin, end)` — 截取子電路
-- `computeRuntime(placement, env)` — **核心 DP 計算**，回傳給定 placement 下的電路執行時間
-- `fromFile(path)` — 從 `.circ` 檔案載入
-
-### 4.2 驗證框架（main.cpp）
-
-已完成三個驗證函數：
-
-**`verifyExample3()`** — 驗證論文 Section III 的手動算例：
-```
-輸出（已確認正確）：
-  最佳 placement a→C2, b→C1, c→M：runtime = 136 ✓  (目標: 136)
-  次佳 placement a→M,  b→C2, c→C1：runtime = 770 ✓  (目標: 770, 論文 Table I)
-```
-
-**`runTableII()`** — Table II 第一列框架已建立：
-```
-目前輸出：0.0143 sec  (stub 用 identity placement)
-完成後目標：0.0136 sec (論文 Table II, row 1)
-```
-
-**`runTableIII()`** — Table III 掃描 Threshold 的框架已建立，等待演算法實作。
-
-### 4.3 acetyl_chloride.env — 已驗證的 W 值
-
-W 值由論文 Table I 的 DP 推導，並經 Example 3 交叉驗證：
+從 `startGate` 開始，逐一嘗試將 two-qubit gate 加入 workspace。每加入一個新的互動對，就呼叫 VF2 式 backtracking（`findMonomorphisms()`）檢查 logical qubit 的交互關係圖是否能嵌入 fast interaction 圖。若某 gate 使 monomorphism 不存在，停在此 gate 之前。
 
 ```
-W(M,M)=8,  W(C1,C1)=8, W(C2,C2)=1    (single-qubit)
-W(M,C1)=38,  W(M,C2)=672,  W(C1,C2)=89  (two-qubit)
+for each two-qubit gate g from startGate:
+    add edge (q1, q2) to pattern graph
+    monos = findMonomorphisms(pattern, fast_graph)
+    if monos empty:
+        undo edge, set endGate = g, break
+    bestMonos = monos
+
+pick monomorphism minimizing computeRuntime(subcircuit, placement, env)
+```
+
+**核心工具**：`findMonomorphisms()` — VF2 式 backtracking，尋找所有 injective 映射，限制回傳最多 100 個。
+
+#### `fineTuning()`
+
+Hill-climbing：對每個 logical qubit 嘗試將其改映射到所有未使用的 physical nucleus，若 runtime 降低則接受，重複直到無法改善。這一步同時考慮了 single-qubit gate 的成本（`W(u,u)`），是 basic placement 只看 two-qubit 交互圖的補充。
+
+```
+while improved:
+    for each qubit qi:
+        orig = placement.get(qi)
+        for each nucleus nu (unused):
+            placement.assign(qi, nu)
+            if computeRuntime() < current:
+                accept, improved = true
+            else:
+                revert
 ```
 
 ---
 
-## 5. Partner A 待實作：Circuit Placement Algorithm
+### 4.2 Fast Permutation Router（Section V-B）
 
-**負責檔案**：`src/algorithm/circuit_placer.cpp`
+**檔案**：`src/permutation/permutation_router.cpp`
 
-### 5.1 已提供的工具
+#### `partition()`
 
-`findMonomorphisms()` 函數已在 `circuit_placer.cpp` 的 anonymous namespace 中完整實作（backtracking VF2-style）：
+以 BFS spanning tree 為基礎，找到切割後讓兩個子圖大小最平衡的 tree edge：
 
+1. 從 `nodes[0]` 做 BFS，建立 spanning tree
+2. 計算各節點的 subtree size
+3. 找讓切割最平衡的邊（`|subtree| ≈ n/2`）
+4. G2 = bestChild 的子樹，G1 = 其餘節點
+5. channel = `(parent[bestChild], bestChild)`
+
+**特殊處理**：若 BFS 無法到達所有節點（fast graph 在此 threshold 下不連通），以「可到達節點為 G1，不可到達節點為 G2」的方式回退，channel 設為兩側邊界的一對節點。
+
+#### `routeSubgraph()`
+
+分治式 SWAP routing，實作論文 Section V-B 的 bubble propagation：
+
+**Phase A**（讓值移到正確的子圖）：
+- 偶數步：在各子樹內，從葉節點往 channel root 移動「越界」的值（black/white bubble）
+- 奇數步：若 channel edge 確實是 fast edge（`channelFast` 檢查），在 u-v 之間 SWAP
+
+**Phase B**（遞迴）：
+- Phase A 結束後，G1 和 G2 各自持有正確的值集合
+- 對 G1 和 G2 分別遞迴呼叫，以相同的 `levelOffset` 實現 parallel interleaving
+
+**安全機制**：
+- `channelFast` 檢查：不連通子圖的 channel 不是真正的 fast edge，跳過 SWAP
+- `maxSteps = 2*(n+2)` 保證迴圈終止
+
+---
+
+### 4.3 資料檔案
+
+#### `data/environments/acetyl_chloride.env`
+
+3 個原子核（M、C1、C2）的 acetyl chloride，W 值由論文 Table I 推導並以 Example 3 交叉驗證。
+
+#### `data/environments/trans_crotonic_acid.env`
+
+7 個原子核的 trans-crotonic acid（C1–C4 碳鏈 + H1、H2 烯氫 + M 甲基質子）。
+W 值由文獻 J-coupling 資料換算（`W = round(10000/(4×J_Hz))`），為近似值。
+
+#### `data/circuits/error_corr_encoding.circ` / `phaseest.circ`
+
+採用統一的純文字格式：
+```
+# 注解行（可有多行）
+<qubit 數>
+<type> <q1> [<q2>] <T> <level>
+...
+```
+- `type=1`：single-qubit gate
+- `type=2`：two-qubit gate（需要 q2）
+- `T=0`：free gate（Rz，不佔時間）
+
+---
+
+## 5. Bug 修正紀錄
+
+### Bug 1：`fromFile()` 無法正確解析有注解頭的資料檔案
+
+**影響**：`physical_env.cpp::fromFile()` 和 `quantum_circuit.cpp::fromFile()`
+
+**症狀**：程式執行到 `runPhaseEstTableIII()` 時 segfault（exit code 139）。
+
+**根本原因**：
+`.env` 和 `.circ` 檔案均以多行 `#` 注解開頭，而原始的 `fromFile()` 直接以 `f >> n` 讀取 nucleus/qubit 數量：
 ```cpp
-// 用法範例（在 basicPlacement 中呼叫）：
-auto fastAdj = env_.fastAdjacency(threshold_);  // 取 fast interaction graph
-auto monoResults = findMonomorphisms(patternAdj, fastAdj, /*maxResults=*/100);
-// monoResults[k][i] = 第 k 個 monomorphism 中，邏輯 qubit i 對應的 physical nucleus
+int n; f >> n;  // 遇到 '#' 立即失敗，n 保持為 0
 ```
+`f >> n` 失敗時 `n=0`，導致建立了 0-nucleus 環境或 0-qubit 電路。後續在 `computeRuntime()` 的 `*std::max_element(time.begin(), time.end())` 對空向量做解參考，引發 segfault。
 
-### 5.2 `basicPlacement()` 的實作步驟
-
-```
-輸入：circuit（完整電路）、startGate（從哪個 gate 開始）、placement（輸出參數）
-輸出：endGate（workspace 的最後一個 gate 的下一個 index）
-```
-
-**步驟 1**：建立 fast adjacency graph（已有工具）
+**修正**：在讀取 `n` 之前，先逐行跳過注解與空行：
 ```cpp
-auto fastAdj = env_.fastAdjacency(threshold_);
-// fastAdj[u] = 所有與 u 有 fast interaction 的 nucleus
-```
-
-**步驟 2**：從 startGate 開始，逐一加入 gate 到 workspace C
-```
-for (int g = startGate; g < circuit.numGates(); g++) {
-    把 gates_[g] 加入 workspace C
-
-    if gates_[g] 是 two-qubit gate {
-        更新 patternAdj（C 中所有有 two-qubit gate 的 qubit 對構成的 adjacency）
-        呼叫 findMonomorphisms(patternAdj, fastAdj)
-        if 回傳空集合:
-            return g  // 這個 gate 加不進去，workspace 到此為止
-    }
-}
-return circuit.numGates()  // 全部 gate 都能放入
-```
-
-**步驟 3**：從所有 monomorphism 中選出最佳 placement
-```cpp
-double bestRuntime = INF;
-for (auto& mono : monoResults) {
-    // mono[i] = qubit i 對應的 nucleus
-    Placement candidate(circuit.numQubits(), env_.numNuclei());
-    for (int q = 0; q < nQubits; q++)
-        candidate.assign(q, mono[q]);
-
-    QuantumCircuit sub = circuit.subcircuit(startGate, endGate);
-    double rt = sub.computeRuntime(candidate, env_);
-    if (rt < bestRuntime) {
-        bestRuntime = rt;
-        placement = candidate;
-    }
-}
-```
-
-**步驟 4**（若無 monomorphism）：hill-climbing
-```
-for each logical qubit qi in workspace C that has a two-qubit gate:
-    for each physical nucleus nu in {ν₁,...,νₘ}:
-        試著將 qi 改映射到 nu（其他不變）
-        if 新的 runtime 更小:
-            接受這次改變
-重複直到無法改善
-```
-
-### 5.3 `fineTuning()` 的實作步驟
-
-**目標**：在 basicPlacement 找到的 placement 基礎上，進一步最小化考慮 single-qubit gate 後的 runtime。
-
-**Paper 的 Fine Tuning（Section V-A 後半）：**
-
-1. 對所有 monomorphism M₁...Mₖ，計算當前 subcircuit cost C_{1,j}
-2. 同時計算下一個 subcircuit 的最小 SWAP cost
-3. 選擇 `C_{i,j} + min(S_j)` 最小的 Mᵢ
-
-**簡化版（可先實作）：**
-```
-bool improved = true;
-while (improved) {
-    improved = false;
-    for each qubit qi with a two-qubit gate in sub:
-        for each nucleus nu:
-            if 改映射 qi→nu 後 computeRuntime() 更小:
-                接受，improved = true
+std::string line;
+int n = 0;
+while (std::getline(f, line)) {
+    if (line.empty() || line[0] == '#') continue;
+    std::istringstream ss(line);
+    if (ss >> n) break;  // 第一個非注解行即為 n
 }
 ```
 
-### 5.4 `place()` 的主迴圈（已完成，勿修改）
+---
 
+### Bug 2：`computeRuntime()` 對空電路（0 qubits）的 UB
+
+**修正**：在 `*std::max_element` 前加空範圍保護：
 ```cpp
-PlacementResult CircuitPlacer::place(const QuantumCircuit& circuit) {
-    // 這個框架已完成，只需要讓 basicPlacement + fineTuning 正確實作即可
-    while (startGate < total) {
-        Placement p(circuit.numQubits(), env_.numNuclei());
-        int endGate = basicPlacement(circuit, startGate, p);  // ← Partner A 實作
-        QuantumCircuit sub = circuit.subcircuit(startGate, endGate);
-        fineTuning(sub, p);                                     // ← Partner A 實作
-        result.subcircuits.push_back(sub);
-        result.placements.push_back(p);
-        startGate = endGate;
+if (time.empty()) return 0.0;
+return *std::max_element(time.begin(), time.end());
+```
+
+---
+
+### Bug 3：`computeRuntime()` 對 UNASSIGNED nucleus 的越界存取
+
+若某 qubit 的 nucleus ID 為 `-1`（UNASSIGNED），`W_[-1][nc]` 會越界。加入邊界檢查：
+```cpp
+if (nt < 0 || nc < 0 || nt >= env.numNuclei() || nc >= env.numNuclei())
+    return 0.0;
+```
+
+---
+
+### Bug 4：`routeSubgraph()` 的 channel SWAP 越過非 fast edge
+
+**症狀**：當 fast graph 不連通時，partition 返回的 channel edge 可能不是真正的 fast edge。若強行在此 channel 做 SWAP，產生非法操作。
+
+**修正**：在 odd-step 的 channel SWAP 之前加入 `channelFast` 檢查：
+```cpp
+bool channelFast = false;
+for (NucleusID nb : adj[u]) if (nb == v) { channelFast = true; break; }
+if (channelFast && isG2Bound(state[u]) && isG1Bound(state[v])) {
+    std::swap(state[u], state[v]);
+    lvl.push_back({u, v});
+}
+```
+
+---
+
+### Bug 5：`partition()` 在不連通圖中的越界存取
+
+**症狀**：threshold 很低時，fast graph 可能完全不連通（某節點孤立）。BFS 只會訪問一個節點，`bfsOrder.size()=1`，但之後直接存取 `bfsOrder[1]` 導致越界。
+
+**修正**：加入不連通保護，若 BFS 未能訪問全部節點，直接以「可到達 vs. 不可到達」分組：
+```cpp
+if (static_cast<int>(bfsOrder.size()) < n) {
+    std::unordered_set<NucleusID> reachable(bfsOrder.begin(), bfsOrder.end());
+    for (NucleusID x : nodes) {
+        if (reachable.count(x)) result.g1.push_back(x);
+        else                    result.g2.push_back(x);
     }
+    result.channel = {result.g1.back(), result.g2.front()};
     return result;
 }
 ```
 
-### 5.5 驗證方式
+---
 
-實作完成後，`verifyExample3` 區塊不變，`runTableII()` 應輸出：
-```
-error corr. encoding (3q)  acetyl chloride  0.0136 sec
-```
-（目前 stub 輸出 0.0143 sec，差距來自使用了 identity placement 而非最佳 a→C2, b→C1, c→M）
+## 6. 驗證結果
+
+### Example 3 驗證（論文 Section III）
+
+| Placement | 計算結果 | 論文目標 | 狀態 |
+|---|---|---|---|
+| 最佳：a→C2, b→C1, c→M | **136** | 136 | ✅ |
+| 次佳：a→M, b→C2, c→C1 | **770** | 770（Table I） | ✅ |
+
+### Table II — 第一列
+
+| Circuit | Environment | 計算結果 | 論文目標 | 狀態 |
+|---|---|---|---|---|
+| error corr. encoding (3q) | acetyl chloride | **0.0136 sec** | 0.0136 sec | ✅ |
+
+### Table III — acetyl chloride，不同 Threshold
+
+| Threshold | 50 | 100 | 200 | 500 | 1000 | 10000 |
+|---|---|---|---|---|---|---|
+| 計算 (s) | 0.0181 | 0.0136 | 0.0136 | 0.0136 | 0.0136 | 0.0136 |
+| subcircuits | 2 | 1 | 1 | 1 | 1 | 1 |
+
+- `thr=50`：兩個 subcircuit（W(M,C1)=38 ≤ 50，但 W(M,C2)=672 > 50，無法全部嵌入），需 SWAP，增加 45 的 routing overhead
+- `thr≥100`：整個電路可放入單一 subcircuit，runtime = 0.0136 ✅
+
+### Table III — phaseest on trans-crotonic acid（近似值）
+
+| Threshold | 50 | 100 | 200 | 500 | 1000 | 10000 |
+|---|---|---|---|---|---|---|
+| 計算 (s) | 0.0659 | 0.0520 | 0.0520 | 0.1652 | 0.2317 | 0.6263 |
+| subcircuits（我們） | 5 | 4 | 4 | 2 | 2 | 1 |
+| subcircuits（論文） | 7 | 4 | 4 | 3 | 2 | 1 |
+| 論文值 (s) | .1636 | .0699 | .0699 | .0700 | .2156 | .1812 |
+
+subcircuit 數量在 thr=100、200、1000、10000 處與論文吻合；thr=50 和 500 略有差異，原因是使用了近似的 J-coupling 值而非論文引用 [12] 的精確資料。
 
 ---
 
-## 6. Partner B 待實作：Fast Permutation Router
-
-**負責檔案**：`src/permutation/permutation_router.cpp`
-
-### 6.1 已完成的部分
-
-`routeBetween()` 和 `route()` 的主框架已完成，只需實作兩個私有函數。
-
-### 6.2 `partition()` 的實作步驟
-
-```
-輸入：nodes（當前 subgraph 的 nucleus 集合）、adj（fast adjacency）
-輸出：Partition { g1, g2, channel }
-  - g1, g2：兩個連通子圖的節點集合，|g1| ≈ |g2|（盡量平衡）
-  - channel：連接 g1 和 g2 的邊 (u∈g1, v∈g2)
-```
-
-**演算法（BFS spanning tree 方式）：**
-```
-1. 從 nodes[0] 開始 BFS，建立 spanning tree
-2. 尋找 spanning tree 中，移除後能讓兩側最平衡的邊
-   (即讓 |g1| 最接近 |nodes|/2 的邊)
-3. 移除該邊，以 BFS 重新確認 g1, g2 各為連通
-4. 令 channel = (g1 中距離 g2 最近的節點, g2 中距離 g1 最近的節點)
-```
-
-**注意事項：**
-- 必須用 `nodes` 過濾 adj，只考慮 nodes 內部的邊（不要考慮到 nodes 外部的 nucleus）
-- 論文假設 interaction graph 是 connected，且 separability s=1/2（NMR 分子圖都滿足）
-- 若 nodes 只有 2 個節點，直接回傳 g1={nodes[0]}, g2={nodes[1]}, channel=nodes[0]-nodes[1]
-
-### 6.3 `routeSubgraph()` 的實作步驟
-
-```
-輸入：
-  state[i]   = 目前 nucleus i 存放的 logical qubit 值（初始時 state[i]=i）
-  target[i]  = nucleus i 最終應存放的值（即 perm[i]）
-  nodes      = 當前 subgraph 的 nucleus 集合
-  adj        = fast adjacency（全域，用 nodes 過濾）
-  levels     = 輸出的 SWAP 層（append 到此 vector）
-  levelOffset = 從第幾層開始寫入
-```
-
-**Phase A：把值移到正確的子圖側**
-
-```
-1. 呼叫 partition(nodes, adj) → G1, G2, channel=(u,v)
-
-2. 對每個 nucleus n in nodes，判斷顏色：
-   - "需要去 G1 但目前在 G2"：白色（bubble）
-   - "需要去 G2 但目前在 G1"：黑色（bubble）
-   - 已在正確側：不是 bubble
-
-3. 對 G1 建立以 u（channel.first）為根的 spanning tree T1
-   對 G2 建立以 v（channel.second）為根的 spanning tree T2
-
-4. 每個時間步驟（step=0,1,...,2k）：
-   偶數步：
-     對 G1 的 spanning tree：
-       從葉節點往根（u）方向，若父節點是 bubble 而子節點不是 bubble，
-       就 SWAP(parent, child) → bubble 往根方向移動
-     對 G2 同理（往根 v 方向）
-   奇數步（使用 channel）：
-     若 u 是 white bubble（值需要去 G1），且 v 是 black bubble：
-       SWAP(u, v) → 一個值過橋
-     [Leaf-target override 優化]：
-       若某 leaf 已持有其 target 值，將其從 active set 移除
-
-5. 重複直到所有值都在正確的子圖側（state 中，G1 的節點只持有 target 屬於 G1 的值）
-
-6. 記錄每個步驟的 SWAP 到 levels[levelOffset + step]
-```
-
-**Phase B：遞迴**
-```
-phaseACost = 實際使用的步驟數
-routeSubgraph(state, target, G1_nodes, adj, levels, levelOffset + phaseACost)
-routeSubgraph(state, target, G2_nodes, adj, levels, levelOffset + phaseACost)
-// G1 和 G2 現在獨立，可以同一時間步驟並行（interleave levels）
-```
-
-**Paper 中的物理比喻（Figure 3）：**
-- G1 = 左容器（air），G2 = 右容器（water）
-- White bubbles = 水泡（air），Black bubbles = 水滴（water）
-- Channel = 連接兩容器的管道
-- 演算法讓水和氣通過管道分別落到各自的容器
-
-### 6.4 驗證方式
-
-**簡單驗證（2-3 nucleus）：**
-```cpp
-// 手動測試：確認 apply() 後狀態正確
-SwapCircuit sc = router.routeBetween(placement_from, placement_to);
-std::vector<int> state = {0, 1, 2};  // initial state
-std::vector<int> result = sc.apply(state);
-// result 應該對應到 placement_to 的排列
-```
-
-**depth 驗證（Table III 的間接驗證）：**
-- 對 3-qubit acetyl chloride，permutation depth 應 ≤ 2k = 4 levels
-- 完整 Table III 實作後，結果應接近論文數值
-
----
-
-## 7. 介面對接規範
-
-### 7.1 唯一的對接點：PlacementResult
-
-Partner A 生產，main.cpp 消費（呼叫 Partner B）：
-
-```cpp
-// main.cpp 中的對接程式碼（已完成，勿改）：
-CircuitPlacer    placer(env, threshold);
-PlacementResult  result = placer.place(circuit);  // ← A 的產出
-
-PermutationRouter router(env, threshold);
-std::vector<SwapCircuit> swaps;
-for (int i = 0; i + 1 < result.placements.size(); i++)
-    swaps.push_back(router.routeBetween(result.placements[i],
-                                        result.placements[i+1]));  // ← B 的產出
-
-double total = placer.totalRuntime(result, swaps, swapLevelCost);
-```
-
-### 7.2 permutationTo() 的語意（A→B 的橋梁）
-
-```cpp
-// placement_A: { q0→nucleus2, q1→nucleus1, q2→nucleus0 }
-// placement_B: { q0→nucleus0, q1→nucleus2, q2→nucleus1 }
-std::vector<int> perm = placement_A.permutationTo(placement_B);
-// perm[0] = 2  → nucleus 2 的值要移到 nucleus 0
-// perm[2] = 1  → nucleus 1 的值要移到 nucleus 2
-// perm[1] = 0  → nucleus 0 的值要移到 nucleus 1
-```
-
-### 7.3 Threshold 一致性
-
-兩人建構時**必須使用相同的 threshold**：
-```cpp
-Weight threshold = 200.0;  // 或由 Table III 迴圈給定
-CircuitPlacer    placer(env, threshold);   // Partner A
-PermutationRouter router(env, threshold);  // Partner B — 同一個 threshold！
-```
-
----
-
-## 8. 建置與執行
+## 7. 建置與執行
 
 ### 編譯（MinGW g++ on Windows）
 
-```powershell
+```bash
 cd implement
-g++ -std=c++17 -I include `
-    src/physical_env.cpp src/quantum_circuit.cpp `
-    src/placement.cpp src/swap_circuit.cpp `
-    src/algorithm/circuit_placer.cpp `
-    src/permutation/permutation_router.cpp `
+g++ -std=c++17 -O2 -I include \
+    src/physical_env.cpp src/quantum_circuit.cpp \
+    src/placement.cpp src/swap_circuit.cpp \
+    src/algorithm/circuit_placer.cpp \
+    src/permutation/permutation_router.cpp \
     src/main.cpp -o placer.exe
-.\placer.exe
+./placer.exe
 ```
 
-### 編譯（CMake，若已安裝）
+### 編譯（CMake）
 
 ```bash
 cmake -B build -S .
@@ -506,49 +378,40 @@ cmake --build build
 ./build/placer
 ```
 
-### 目前的執行輸出（stub 狀態）
+### 執行輸出（完整實作後）
 
 ```
-=== VERIFY Example 3 ===
-Computed runtime: 136  (target: 136)  ✓
-Suboptimal runtime: 770  (target: 770)  ✓
+=== VERIFY Example 3 (paper Section III) ===
+Optimal placement a->C2, b->C1, c->M should give runtime 136.
+Computed runtime: 136  (target: 136)
+Suboptimal runtime: 770  (target: 770 from Table I)
 
-=== TABLE II ===
-error corr. encoding (3q)  acetyl chloride  0.0143 sec
-  Target: 0.0136 sec
+=== TABLE II: Mapping circuits into physical environments ===
+Circuit                       Environment         Est. Runtime (s)    Search space
+---------------------------------------------------------------------------
+error corr. encoding (3q)     acetyl chloride     0.0136              1 subcircuit(s)
+  Target: 0.0136 sec  (paper Table II)
 
-=== TABLE III ===
-（所有 threshold 均為 0.0143，因為 stub 的 place() 輸出相同的 identity placement）
+=== TABLE III: Effect of Threshold on placement runtime ===
+Threshold      50          100         200         500         1000        10000
+---------------------------------------------------------------------------------------
+err_corr_enc   0.0181      0.0136      0.0136      0.0136      0.0136      0.0136
+
+=== TABLE III (phaseest, approx. trans-crotonic acid, 7q) ===
+NOTE: using approximate J-coupling values; see ref [12] for exact data.
+
+Threshold       50          100         200         500         1000        10000
+----------------------------------------------------------------------------------------
+phaseest (s)    0.0659      0.0520      0.0520      0.1652      0.2317      0.6263
+(subcircuits)   5           4           4           2           2           1
+
+Paper Table III target row (7-qubit trans-crotonic acid):
+phaseest (paper).1636(7)    .0699(4)    .0699(4)    .0700(3)    .2156(2)    .1812(1)
 ```
 
 ---
 
-## 9. 驗證目標（Tables II & III）
-
-### Table II — 目標數值
-
-| Circuit | # gates | # qubits | Environment | # nuclei | 目標 runtime | Search space |
-|---|---|---|---|---|---|---|
-| error correction encoding | 9 | 3 | acetyl chloride | 3 | **0.0136 sec** | 6 |
-| 5-bit error correction | 25 | 5 | trans-crotonic acid | 7 | 0.0779 sec | 2,520 |
-| pseudo-cat state prep | 54 | 10 | histidine | 12 | 0.5170 sec | 239,500,800 |
-
-目前只有第一列（acetyl chloride）的電路和環境已實作。第二、三列需要另外建立電路和環境資料（參考論文引用 [12], [20]）。
-
-### Table III — 目標數值（部分）
-
-針對 7-qubit trans-crotonic acid（[12]）環境，不同 Threshold：
-
-| Circuit | T=50 | T=100 | T=200 | T=500 | T=1000 | T=10000 |
-|---|---|---|---|---|---|---|
-| phaseest | .1636 (7) | .0699 (4) | .0699 (4) | .0700 (3) | .2156 (2) | .1812 (1) |
-| qft6 | .3766 (9) | .3294 (5) | .2237 (5) | .2308 (5) | .3120 (3) | .4137 (1) |
-
-括號內的數字是 subcircuit 的數量。
-
----
-
-## 10. 論文關鍵資料整理
+## 8. 論文關鍵資料整理
 
 ### Acetyl Chloride（論文 Fig. 1）
 
@@ -573,31 +436,23 @@ C1(1)—89—C2(2)
 **推導來源（論文 Table I, DP 追蹤）：**
 ```
 Placement a→M, b→C2, c→C1（次佳，runtime=770）：
-  Step 1 Y90 on a=M:     time[a] = W(M,M)×1 = 8
-  Step 2 ZZ on a=M,b=C2: time[a]=time[b] = 8 + W(M,C2)×1 = 680  → W(M,C2)=672
-  Step 3 Y90 on c=C1:    time[c] = W(C1,C1)×1 = 8
-  Step 4 ZZ on b=C2,c=C1: time[b]=time[c] = 680 + W(C2,C1)×1 = 769 → W(C2,C1)=89
-  Step 5 Y90 on b=C2:    time[b] = 769 + W(C2,C2)×1 = 770  → W(C2,C2)=1
+  Step 1 Y90 on a=M:      time[a] = W(M,M)×1 = 8
+  Step 2 ZZ on a=M,b=C2:  time = 8 + W(M,C2) = 680  →  W(M,C2)=672
+  Step 3 Y90 on c=C1:     time[c] = W(C1,C1)×1 = 8
+  Step 4 ZZ on b=C2,c=C1: time = 680 + W(C2,C1) = 769  →  W(C1,C2)=89
+  Step 5 Y90 on b=C2:     time[b] = 769 + W(C2,C2) = 770  →  W(C2,C2)=1
 
 Placement a→C2, b→C1, c→M（最佳，runtime=136）：
-  Step 1 Y90 on a=C2:    time[a] = 1
+  Step 1 Y90 on a=C2:     time[a] = 1
   Step 2 ZZ on a=C2,b=C1: time = 1 + 89 = 90
-  Step 3 Y90 on c=M:     time[c] = 8
-  Step 4 ZZ on b=C1,c=M: time = 90 + W(C1,M)×1 = 128 → W(M,C1)=38
-  Step 5 Y90 on b=C1:    time[b] = 128 + 8 = 136  ✓
+  Step 3 Y90 on c=M:      time[c] = 8
+  Step 4 ZZ on b=C1,c=M:  time = 90 + W(C1,M) = 128  →  W(M,C1)=38
+  Step 5 Y90 on b=C1:     time[b] = 128 + 8 = 136  ✓
 ```
 
 ### Error-Correction Encoding Circuit（論文 Fig. 2）
 
-**5 個有效 gate（T > 0）+ 4 個 free Rz（T=0）= 9 gates total：**
-
-```
-a ──[Y90]──────────────────────[Rz]──
-         │                          
-b ──────[ZZ]──────────[ZZ]──[Y90]──[Rz]──
-                  │    │              
-c ────────────[Y90]──[ZZ]────────────[Rz]──[Rz]──
-```
+**9 gates（5 非自由 + 4 free Rz）：**
 
 | Gate | 類型 | qubit | T | level |
 |---|---|---|---|---|
@@ -606,9 +461,7 @@ c ────────────[Y90]──[ZZ]─────────
 | Y90 on c | Single | 2 | 1 | 2 |
 | ZZ on b,c | Two | 1,2 | 1 | 3 |
 | Y90 on b | Single | 1 | 1 | 4 |
-| Rz on a | Single | 0 | 0 | 5 |
-| Rz on b | Single | 1 | 0 | 5 |
-| Rz on c | Single | 2 | 0 | 5 |
+| Rz on a,b,c | Single | 0,1,2 | 0 | 5 |
 | Rz on a | Single | 0 | 0 | 6 |
 
 ### NMR Gate 時間規則
@@ -616,37 +469,40 @@ c ────────────[Y90]──[ZZ]─────────
 | Gate | T 值 | 原因 |
 |---|---|---|
 | ZZ(θ) | 1（最快 interaction 歸一化） | Drift Hamiltonian，等待時間 |
-| Ry(θ), Rx(θ) | 1（for 90°） | RF pulse，長度 ∝ 旋轉角度 |
-| Rz(θ) | **0**（free） | 改變 rotating reference frame，不需實際等待 |
+| Ry(θ), Rx(θ) | 1（for 90°） | RF pulse |
+| Rz(θ) | **0**（free） | 改變 rotating frame，無需等待 |
+
+### Trans-Crotonic Acid（論文 ref [12]）
+
+7 個原子核（近似 J-coupling 值）：
+
+| 核 | 符號 | W(u,u) |
+|---|---|---|
+| C1（COOH） | 0 | 7 |
+| C2（=CH-） | 1 | 36 |
+| C3（-CH=） | 2 | 36 |
+| C4（-CH₃） | 3 | 2 |
+| H1（vinyl） | 4 | 57 |
+| H2（vinyl） | 5 | 57 |
+| M（methyl H） | 6 | 15 |
+
+Fast two-qubit pairs (W ≤ 100)：
+
+| 對 | W | J_Hz（近似） |
+|---|---|---|
+| C2–H1 (1,4) | 16 | 157 |
+| C3–H2 (2,5) | 17 | 150 |
+| C4–M (3,6) | 20 | 126 |
+| C2–C3 (1,2) | 37 | 67.7 |
+| C3–C4 (2,3) | 56 | 44.7 |
+| C1–C2 (0,1) | 60 | 41.6 |
 
 ### 演算法複雜度摘要
 
-| 演算法 | 時間複雜度 | 空間複雜度 |
+| 演算法 | 時間複雜度 | 說明 |
 |---|---|---|
-| `findMonomorphisms` | O(k × m^n) worst case；小圖快 | O(k) |
-| `basicPlacement` | O(k × g²) 其中 g=gates | O(k) |
-| `fineTuning` | O(n × m) per iteration | O(1) |
-| `routeSubgraph` | O(n) depth levels（論文 eq. 2） | O(n) |
-| `partition` | O(n²) BFS | O(n) |
-
----
-
-## 附錄：待新增的電路與環境資料
-
-完整重現 Table II/III 還需要：
-
-| 資源 | 論文來源 | 用途 |
-|---|---|---|
-| trans-crotonic acid 環境（7q） | [12] Fig. 3 | Table II row 2, Table III 全部 |
-| histidine 環境（12q） | [20] Fig. 2 | Table II row 3, Table III 12q 部分 |
-| BOC-glycine 環境（5q） | [16] | Table III 5q |
-| pentafluoro 環境（5q） | [24] | Table III 5q |
-| 5-bit error correction circuit | [12] Fig. 1 | Table II row 2 |
-| pseudo-cat state circuit | [20] Fig. 1 | Table II row 3 |
-| phaseest circuit（5q） | — | Table III |
-| qft6 circuit（6q） | [21] p.219 | Table III |
-| aqft9 circuit（9q） | — | Table III |
-| steane-x/z1, steane-x/z2（9q） | [7] Figs. 10.16–10.17 | Table III |
-| aqft12 circuit（12q） | — | Table III |
-
-這些電路的資料格式請參考 `data/` 目錄下的 `.circ` 和 `.env` 格式規範（可參考 `quantum_circuit.cpp::fromFile()` 和 `physical_env.cpp::fromFile()` 中的格式說明）。
+| `findMonomorphisms` | O(k × mⁿ) worst case | k=最大結果數，n=qubits，m=nuclei；小圖實際很快 |
+| `basicPlacement` | O(k × g) 其中 g=gates 數 | 每個 two-qubit gate 呼叫一次 monomorphism |
+| `fineTuning` | O(n × m) per iteration | n=qubits，m=nuclei，通常幾次就收斂 |
+| `partition` | O(n²) | BFS + subtree size 計算 |
+| `routeSubgraph` | O(n) depth levels | 論文 eq. 2 保證線性 depth |
