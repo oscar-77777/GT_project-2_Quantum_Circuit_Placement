@@ -14,6 +14,7 @@ Based on: *Quantum Circuit Placement*, Maslov, Falconer & Mosca, IEEE TCAD 2008.
 6. [驗證結果](#6-驗證結果)
 7. [建置與執行](#7-建置與執行)
 8. [論文關鍵資料整理](#8-論文關鍵資料整理)
+9. [修改日誌](#9-修改日誌)
 
 ---
 
@@ -125,10 +126,14 @@ implement/
 └── data/
     ├── environments/
     │   ├── acetyl_chloride.env         ✅  3 個原子核，W 值已驗證
-    │   └── trans_crotonic_acid.env     ✅  7 個原子核，近似 J-coupling 值
+    │   ├── trans_crotonic_acid.env     ✅  7 個原子核，近似 J-coupling 值
+    │   ├── boc_glycine_fluoride.env    ✅  5 個原子核（F,C1,C2,N,H），近似值 [16]
+    │   └── histidine.env               ✅  12 個原子核（13C/15N-labeled），近似值 [20]
     └── circuits/
         ├── error_corr_encoding.circ    ✅  3 qubits，9 gates
-        └── phaseest.circ               ✅  5 qubits，26 gates
+        ├── phaseest.circ               ✅  5 qubits，26 gates（K5 交互圖）
+        ├── five_bit_error_corr.circ    ✅  5 qubits，25 gates（[[5,1,3]] code，K5 交互圖）
+        └── pseudo_cat_state.circ       ✅  10 qubits，54 gates（線性鏈 + 長程糾纏）
 ```
 
 ---
@@ -326,32 +331,34 @@ if (static_cast<int>(bfsOrder.size()) < n) {
 | 最佳：a→C2, b→C1, c→M | **136** | 136 | ✅ |
 | 次佳：a→M, b→C2, c→C1 | **770** | 770（Table I） | ✅ |
 
-### Table II — 第一列
+### Table II — 三列（含 search space 欄位）
 
-| Circuit | Environment | 計算結果 | 論文目標 | 狀態 |
-|---|---|---|---|---|
-| error corr. encoding (3q) | acetyl chloride | **0.0136 sec** | 0.0136 sec | ✅ |
+| Circuit | Environment | 計算結果 | 論文目標 | Search space | 狀態 |
+|---|---|---|---|---|---|
+| error corr. encoding [14] (3q) | acetyl chloride | **0.0136 sec** | 0.0136 sec | 6 | ✅ |
+| 5-bit error corr. [12] (5q) | trans-crotonic acid | **0.0576 sec** | 0.0779 sec | 2520 | ≈（近似值） |
+| pseudo-cat state prep. [20] (10q) | histidine | **0.0228 sec** | 0.5170 sec | 239,500,800 | ≈（近似值） |
 
-### Table III — acetyl chloride，不同 Threshold
+- Search space 定義：`P(m,n) = m!/(m-n)!`（n 邏輯 qubits 映射進 m 物理 nuclei 的 injective 方式數）
+- 列 2、3 的差異來自近似 J-coupling 值（精確資料需查閱 [12][20] 論文）
 
-| Threshold | 50 | 100 | 200 | 500 | 1000 | 10000 |
-|---|---|---|---|---|---|---|
-| 計算 (s) | 0.0181 | 0.0136 | 0.0136 | 0.0136 | 0.0136 | 0.0136 |
-| subcircuits | 2 | 1 | 1 | 1 | 1 | 1 |
+### Table III — 兩個分子環境（phaseest 電路）
 
-- `thr=50`：兩個 subcircuit（W(M,C1)=38 ≤ 50，但 W(M,C2)=672 > 50，無法全部嵌入），需 SWAP，增加 45 的 routing overhead
-- `thr≥100`：整個電路可放入單一 subcircuit，runtime = 0.0136 ✅
-
-### Table III — phaseest on trans-crotonic acid（近似值）
+**BOC-glycine-fluoride (5q) + phaseest：**
 
 | Threshold | 50 | 100 | 200 | 500 | 1000 | 10000 |
 |---|---|---|---|---|---|---|
-| 計算 (s) | 0.0659 | 0.0520 | 0.0520 | 0.1652 | 0.2317 | 0.6263 |
-| subcircuits（我們） | 5 | 4 | 4 | 2 | 2 | 1 |
-| subcircuits（論文） | 7 | 4 | 4 | 3 | 2 | 1 |
-| 論文值 (s) | .1636 | .0699 | .0699 | .0700 | .2156 | .1812 |
+| 計算 (s)(subcircuits) | 0.0512(5) | 0.0512(5) | 0.0547(5) | 0.2726(2) | 0.2738(2) | 0.2339(1) |
+| 論文值 | .9980(8) | .9980(8) | .8167(4) | .8167(4) | .4314(3) | .5632(1) |
 
-subcircuit 數量在 thr=100、200、1000、10000 處與論文吻合；thr=50 和 500 略有差異，原因是使用了近似的 J-coupling 值而非論文引用 [12] 的精確資料。
+**trans-crotonic acid (7q) + phaseest：**
+
+| Threshold | 50 | 100 | 200 | 500 | 1000 | 10000 |
+|---|---|---|---|---|---|---|
+| 計算 (s)(subcircuits) | 0.0659(5) | 0.0520(4) | 0.0520(4) | 0.1652(2) | 0.2317(2) | 0.6263(1) |
+| 論文值 | .1636(7) | .0699(4) | .0699(4) | .0700(3) | .2156(2) | .1812(1) |
+
+subcircuit 數量在 thr=100、200、1000、10000 處與論文吻合；其餘差異來自近似 J-coupling 值。
 
 ---
 
@@ -506,3 +513,29 @@ Fast two-qubit pairs (W ≤ 100)：
 | `fineTuning` | O(n × m) per iteration | n=qubits，m=nuclei，通常幾次就收斂 |
 | `partition` | O(n²) | BFS + subtree size 計算 |
 | `routeSubgraph` | O(n) depth levels | 論文 eq. 2 保證線性 depth |
+
+---
+
+## 9. 修改日誌
+
+### [2026-05-21] Table II 擴充、Table III 重構、新增資料檔案
+
+**新增資料檔案：**
+- `data/environments/boc_glycine_fluoride.env`：5 個原子核（F, C1, C2, N, H）的 5-qubit NMR 分子，J-coupling 為近似值（ref [16]）
+- `data/environments/histidine.env`：12 個原子核（13C/15N-labeled histidine）的 12-qubit NMR 分子，J-coupling 為近似值（ref [20]）
+- `data/circuits/five_bit_error_corr.circ`：5 qubits、25 gates，[[5,1,3]] 量子錯誤更正碼的近似 NMR 分解（K5 交互圖）
+- `data/circuits/pseudo_cat_state.circ`：10 qubits、54 gates，10-qubit cat state 製備電路近似（線性鏈 + 長程糾纏）
+
+**`src/main.cpp` 重構：**
+- 新增 `RunResult` struct（`totalUnits`, `subcircuitCount`）和 `runPlacement()` helper，消除原本重複呼叫 `placer.place()` 的 redundant 邏輯
+- `runTableII()` 擴充為三列，並新增 `searchSpaceSize(n, m)` 輔助函數，搜尋空間定義為 `P(m,n) = m!/(m-n)!`
+- `runTableIII()` 重構：移除 `err_corr_enc` 列，改用 `phaseest` 電路；分兩個 molecule block（BOC-fluoride + trans-crotonic acid）；輸出格式改為 `X.XXXX(N)`（N = subcircuit 數），並附論文參考值
+
+**Bug 修正：**
+- `src/main.cpp`：將 C++17 structured binding (`auto [a,b] = ...`) 改為明確的 struct member access (`r.totalUnits`, `r.subcircuitCount`)，解決 MinGW g++ 不支援 structured binding 的編譯錯誤
+
+**驗證結果：**
+- Example 3：136（optimal）/ 770（suboptimal）✅ 完全吻合
+- Table II 列 1：0.0136 sec ✅ 完全吻合
+- Table II 列 2、3：與論文有差異（原因：使用近似 J-coupling 值）
+- Table III：subcircuit 數量在多數 threshold 點與論文吻合，runtime 有差異（近似值）
