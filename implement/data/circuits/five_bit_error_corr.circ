@@ -1,0 +1,46 @@
+# 5-bit error correction encoding circuit
+# Reference [12]: Knill et al., Phys. Rev. Lett. 86, 5811 (2001), Fig. 1
+# 5 qubits (q0 = data, q1-q4 = ancilla), 25 gates total
+#
+# NMR gate types: 1=single-qubit (Ry/Rz), 2=two-qubit (ZZ)
+# T=1 for Ry(90) or ZZ(90); T=0 for Rz (free gate)
+#
+# The [[5,1,3]] quantum error correcting code stabilizers:
+#   g1 = XZZXI, g2 = IXZZX, g3 = XIXZZ, g4 = ZXIXZ
+# Each generator involves all 5 qubits, so the interaction graph is K5.
+#
+# NOTE: Exact gate sequence from [12] not available; this is an approximate
+#       NMR decomposition of the encoding unitary covering all 10 qubit pairs.
+5
+# Phase 1: Prepare ancilla qubits (Ry(90), T=1)
+1 1 1.0 0
+1 2 1.0 0
+1 3 1.0 0
+1 4 1.0 0
+# Phase 2: Stabilizer implementation via ZZ gates (T=1)
+# Generator g1 interactions
+2 0 1 1.0 1
+2 1 2 1.0 2
+2 2 3 1.0 3
+# Generator g2 interactions
+2 1 4 1.0 4
+2 2 4 1.0 5
+# Generator g3 interactions
+2 0 2 1.0 6
+2 3 4 1.0 6
+# Generator g4 interactions
+2 0 3 1.0 7
+2 1 3 1.0 8
+2 0 4 1.0 9
+# Phase 3: Output rotations (Ry, T=1)
+1 0 1.0 10
+1 1 1.0 10
+1 2 1.0 11
+1 3 1.0 11
+1 4 1.0 11
+# Free Rz frame corrections (T=0, do not affect runtime)
+1 0 0.0 12
+1 1 0.0 12
+1 2 0.0 12
+1 3 0.0 12
+1 4 0.0 12
