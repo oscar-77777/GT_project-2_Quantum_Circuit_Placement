@@ -745,31 +745,35 @@ cmake --build build
 
 ```
 === VERIFY Example 3 (paper Section III) ===
-Optimal placement a->C2, b->C1, c->M should give runtime 136.
-Computed runtime: 136  (target: 136)
-Suboptimal runtime: 770  (target: 770 from Table I)
+Optimal   a->C2,b->C1,c->M : 136  (target: 136)
+Suboptimal a->M, b->C2,c->C1: 770  (target: 770)
 
-=== TABLE II: Mapping circuits into physical environments ===
-Circuit                       Environment         Est. Runtime (s)    Search space
----------------------------------------------------------------------------
-error corr. encoding (3q)     acetyl chloride     0.0136              1 subcircuit(s)
-  Target: 0.0136 sec  (paper Table II)
+=== TABLE II: Mapping Circuits Into Their Physical Environment ===
+Circuit                         Environment           Est. runtime (s)    Search space
+------------------------------------------------------------------------------------------
+error corr. encoding [14]       acetyl chloride [14]  0.0136              6
+                                (target: 0.0136 sec, 1 subcircuit)
+5-bit error corr. [12]          trans-crotonic acid [12]0.0576              2520
+                                (target: 0.0779 sec)
+pseudo-cat state prep. [20]     histidine [20]        0.0347              239500800
+                                (target: 0.5170 sec)
 
-=== TABLE III: Effect of Threshold on placement runtime ===
-Threshold      50          100         200         500         1000        10000
----------------------------------------------------------------------------------------
-err_corr_enc   0.0181      0.0136      0.0136      0.0136      0.0136      0.0136
+=== TABLE III: Placement with Different Threshold Values ===
+(Format: estimated_runtime_sec(#subcircuits))
+NOTE: environments use approximate J-coupling values;
+      exact paper values require coupling matrices from refs [16][12].
 
-=== TABLE III (phaseest, approx. trans-crotonic acid, 7q) ===
-NOTE: using approximate J-coupling values; see ref [12] for exact data.
+Placement with the 5-qubit BOC-(13C2-15N-2D2-glycine)-fluoride molecule [16]
+Circuit       50           100          200          500          1000         10000
+--------------------------------------------------------------------------------------------
+phaseest      0.0512(5)    0.0512(5)    0.0547(5)    0.2726(2)    0.2738(2)    0.2339(1)
+(paper): .9980(8)     .9980(8)     .8167(4)     .8167(4)     .4314(3)     .5632(1)
 
-Threshold       50          100         200         500         1000        10000
-----------------------------------------------------------------------------------------
-phaseest (s)    0.0659      0.0520      0.0520      0.1652      0.2317      0.6263
-(subcircuits)   5           4           4           2           2           1
-
-Paper Table III target row (7-qubit trans-crotonic acid):
-phaseest (paper).1636(7)    .0699(4)    .0699(4)    .0700(3)    .2156(2)    .1812(1)
+Placement with the 7-qubit trans-crotonic acid molecule [12]
+Circuit       50           100          200          500          1000         10000
+--------------------------------------------------------------------------------------------
+phaseest      0.0698(5)    0.0536(4)    0.0536(4)    0.1652(2)    0.2317(2)    0.6263(1)
+(paper): .1636(7)     .0699(4)     .0699(4)     .0700(3)     .2156(2)     .1812(1)
 ```
 
 ---
