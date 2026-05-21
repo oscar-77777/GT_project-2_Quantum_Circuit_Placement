@@ -878,6 +878,25 @@ Fast two-qubit pairs (W ≤ 100)：
 
 ## 9. 修改日誌
 
+### [2026-05-21E] 新增演算法流程圖（報告用）
+
+**新增 `figures/generate_flowcharts.py`（4 張純流程圖）**：
+
+| 檔案 | 內容 |
+|------|------|
+| `flow1_pipeline.png` | 整體 Pipeline：從輸入電路到輸出 runtime 的主迴圈，含 basicPlacement → fineTuning → routeSubgraph → 累積 runtime |
+| `flow2_basic_placement.png` | basicPlacement 詳細流程：掃描 gate、建 patternAdj、findMonomorphisms 呼叫、截斷條件、選最佳 monomorphism |
+| `flow3_fine_tuning.png` | fineTuning（左）+ scoreplacement（右）雙面板：hill-climbing 迴圈邏輯 + depth-2 lookahead penalty 計算流程 |
+| `flow4_router.png` | routeSubgraph divide-and-conquer：partition → Phase A bubble propagation（含 leaf-target override 標注）→ Phase B 平行遞迴 |
+
+**新增分析文件 `figures/5qubit_analysis.md`**：
+- BOC-glycine-fluoride 全 10 對 W 值表
+- Fast graph 不連通問題（threshold=200 時 `{F,C1,C2}` 與 `{N,H}` 互不相連）
+- 5-qubit 電路（five_bit_error_corr、phaseest）interaction graph 皆為 K₅
+- 3-qubit vs 5-qubit 演算法行為差異對比表
+
+---
+
 ### [2026-05-21D] 新增報告視覺化圖表
 
 **新增 `figures/generate_figures.py`（Python 腳本，依賴 matplotlib + networkx）**：
