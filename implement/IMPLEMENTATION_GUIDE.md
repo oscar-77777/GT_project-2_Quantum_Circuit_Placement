@@ -874,6 +874,20 @@ Fast two-qubit pairs (W ≤ 100)：
 
 ## 9. 修改日誌
 
+### [2026-05-21D] 新增報告視覺化圖表
+
+**新增 `figures/generate_figures.py`（Python 腳本，依賴 matplotlib + networkx）**：
+- `fig1_physical_env.png`：Acetyl Chloride 物理環境圖（fast/slow edge 標色，W 值標注）
+- `fig2_circuit.png`：Error-correction encoding 電路圖（qubit wire + gate box + DP 追蹤）
+- `fig3_monomorphism.png`：Subgraph monomorphism 三格圖（logical graph / fast physical graph / optimal mapping）
+- `fig4_pipeline.png`：整體 pipeline 流程圖（placement loop + permutation router + 最終電路結構）
+- `fig5_permutation.png`：Permutation routing 步驟（state evolution + divide-and-conquer 演算法結構）
+- `fig6_finetuning.png`：Fine-tuning + Depth-2 look-ahead（hill-climbing 搜尋空間 + scoring 機制）
+- 輸出目錄：`figures/output/`（150 DPI，PNG）
+- 執行方式：`cd implement && python figures/generate_figures.py`
+
+---
+
 ### [2026-05-21C] 新增 Depth-2 Look-ahead、詳細文件、資料來源說明
 
 **演算法新增：Depth-2 Look-ahead（`src/algorithm/circuit_placer.cpp`）**
