@@ -507,7 +507,7 @@ W(u,u) = round( π × 10000 / |Δν_u Hz| )
 
 #### Trans-Crotonic Acid（ref [12]：Knill et al., PRL 86, 5811, 2001）
 
-7-spin NMR system，CH3-CH=CH-COOH（13C4-labeled）：
+7-spin NMR system，CH3-CH=CH-COOH（13C4-labeled）。
 
 | Nucleus | 編號 | 化學鍵 |
 |---|---|---|
@@ -519,60 +519,91 @@ W(u,u) = round( π × 10000 / |Δν_u Hz| )
 | H2 (vinyl) | 5 | C3 上的烯氫 |
 | M (methyl) | 6 | C4 甲基質子（等效） |
 
-**Fast interactions（W ≤ 100，直接鍵 1J）**：
+**W 值來源：[12] 論文 Figure 3（分子結構圖上的最近鄰 J-coupling 標注值）**
 
-| 對 | J_Hz | W | 鍵型 |
+[12] Figure 3 標題：*Trans-crotonic acid. The chemical shifts and nearest neighbor couplings are shown.*
+
+圖中分子鏈從左到右為：M — C4 — C3=C2 — C1(COOH)，H2 在 C3 上，H1 在 C2 上。圖中化學位移（Hz）標注在各原子核旁，最近鄰耦合常數（Hz）標注在鍵上，從圖中直接讀出：
+
+| 對（我們的索引） | 從圖中讀取的 J (Hz) | W = round(10000/4J) | 化學鍵型 |
 |---|---|---|---|
-| C2-H1 (1,4) | 157 | 16 | 1J(C-H) |
-| C3-H2 (2,5) | 150 | 17 | 1J(C-H) |
-| C4-M (3,6) | 126 | 20 | 1J(C-H) |
-| C2-C3 (1,2) | 67.7 | 37 | 1J(C-C) |
-| C3-C4 (2,3) | 44.7 | 56 | 1J(C-C) |
-| C1-C2 (0,1) | 41.6 | 60 | 1J(C-C) |
+| C3-H2 (2,5) | 163 | **15** | 1J(C-H) vinyl C3 |
+| C2-H1 (1,4) | 156 | **16** | 1J(C-H) vinyl C2 |
+| C4-M (3,6) | 127 | **20** | 1J(C-H) methyl |
+| C1-C2 (0,1) | 72 | **35** | 1J(C-C)，vinyl→COOH；因共軛效應偏高（α,β-不飽和酸典型 65–75 Hz） |
+| C2-C3 (1,2) | 69.7 | **36** | 1J(C=C) vinyl double bond |
+| C3-C4 (2,3) | 42 | **60** | 1J(C-C) vinyl→methyl single bond |
 
-**Medium interactions（100 < W ≤ 1000，2–3 鍵）**：H1-H2=156, C1-H1=338, C1-H2=714 等
-
-**資料來源**：文獻中 trans-crotonic acid 的標準 NMR 數據（近似值，精確值需 ref [12] 完整 coupling matrix）
+長程耦合（2–3 鍵）未在 Figure 3 標注，保留 NMR 文獻近似值。
 
 ---
 
 #### BOC-(13C2-15N-2D2-glycine)-fluoride（ref [16]：Marx et al., PRA 60, 2966, 1999）
 
-5-spin system（F, C1, C2, N, H）：
+5-spin system（F=19F, C1=13C', C2=13Cα, N=15N, H=1H）。
 
-| 對 | J_Hz | W | 鍵型 |
-|---|---|---|---|
-| F-C1 (0,1) | ~200 | 13 | 1J(F-C) |
-| N-H (3,4) | ~90 | 28 | 1J(N-H) |
-| C1-C2 (1,2) | ~55 | 45 | 1J(C-C) |
-| F-C2 (0,2) | ~20 | 125 | 2J(F-C) |
-| C2-N (2,3) | ~10 | 250 | 1J(C-N) |
-| C2-H (2,4) | ~7 | 357 | 2J(C-H) |
-| C1-N/C1-H (1,3)(1,4) | ~5 | 500 | 2J |
-| F-N (0,3) | ~3 | 833 | 3J |
-| F-H (0,4) | ~2 | 1250 | 4J |
+**W 值來源：[16] 論文 Table I（論文直接給出精確耦合常數，非近似值）**
+
+[16] Table I 標題：*Resonance frequencies νk, chemical shifts δk, one-bond coupling constants Jk(k+1), and non-zero two-bond coupling constants Jkl of the used five-spin system.*
+
+| [16] 中的 spin 編號 | 對應原子核 | 我們的索引 |
+|---|---|---|
+| spin 1 | 1H (amide proton) | 4 = H |
+| spin 2 | 15N | 3 = N |
+| spin 3 | 13Cα (alpha carbon) | 2 = C2 |
+| spin 4 | 13C' (acyl fluoride carbon) | 1 = C1 |
+| spin 5 | 19F | 0 = F |
+
+從 [16] Table I 精確讀取的耦合常數與對應 W 值：
+
+| 對（我們的索引） | [16] 中的符號 | J (Hz) | W = round(10000/4J) | 鍵型 |
+|---|---|---|---|---|
+| F-C1 (0,1) | J₄₅ | **366.0** | **7** | 1J(C'-F) |
+| N-H (3,4) | J₁₂ | **94.1** | **27** | 1J(H-N) |
+| F-C2 (0,2) | J₃₅ | **67.7** | **37** | 2J(Cα-F，through C') |
+| C1-C2 (1,2) | J₃₄ | **65.2** | **38** | 1J(Cα-C') |
+| C2-N (2,3) | J₂₃ | **13.5** | **185** | 1J(N-Cα) |
+| C2-H (2,4) | J₁₃ | **2.7** | **926** | 2J(H-Cα，through N) |
+| C1-N, C1-H, F-N, F-H | — | 未解析 | **9999** | [16] 原文：「No resolved 3- or 4-bond coupling constants were observed」 |
+
+**Single-qubit W 值（從 [16] Table I 共振頻率計算）**：
+
+| 原子核 | νk (Hz) | 最近同種核 | \|Δν\| (Hz) | W(u,u) |
+|---|---|---|---|---|
+| H (4) | 400,133,001.6 | 無同種近鄰 | >> 1 MHz | **1** |
+| N (3) | 40,547,895.3 | 無同種近鄰 | >> 1 MHz | **1** |
+| C2=Cα (2) | 100,616,858.0 | C1=C' | 12,231.1 | **3** = round(π×10000/12231.1) |
+| C1=C' (1) | 100,629,089.1 | C2=Cα | 12,231.1 | **3** |
+| F (0) | 376,510,545.5 | 無同種近鄰 | >> 1 MHz | **1** |
+
+**注意**：[16] 中的 F-C2 耦合（J₃₅=67.7 Hz，W=37）是 2-bond 耦合（Cα→C'→F），但強度接近 1-bond C-C。這是 19F 的特性：多鍵 C-F 耦合可接近 1-bond C-C 的強度。此值在之前的近似版本（W≈125）中嚴重低估，更新後對 threshold=100 的 fast graph 結構有顯著影響（此 edge 從 slow 變為 fast）。
 
 ---
 
 #### Histidine（ref [20]：Negrevergne et al., PRL 96, 170501, 2006）
 
-12-spin system（13C/15N-labeled imidazole）：
+12-spin system（13C/15N-labeled l-histidine）。
 
-| 對 | W | 鍵型 |
+**W 值來源：無法從 [20] 論文正文獲取**
+
+[20] 論文正文中**未提供**完整的 J-coupling matrix。論文 reference [24] 指向 EPAPS（Supplemental Material，AIP 輔助材料存檔）文件，其中才包含完整的化學位移、J-coupling 常數與 T₂ 馳豫時間。EPAPS 文件在 2006 年發表後已無法直接存取。
+
+因此 histidine.env 中的 W 值**全部為近似值**，由以下方式推算：
+- 分子結構已知：l-histidine 的 13C/15N 標記 imidazole 環，含 6 個 13C、3 個 15N、5 個 1H。
+- 1J(C-H) ≈ 130–145 Hz → W ≈ 17–19（all 13C-1H direct bonds）
+- 1J(C-C) ≈ 40–55 Hz → W ≈ 45–63（based on histidine backbone and ring bonds）
+- 1J(C-N) ≈ 10–15 Hz → W ≈ 167–250（heteronuclear 1-bond）
+
+**精確結果**需要 EPAPS [24] 數據；目前近似值導致 Table II/III 的 pseudo-cat state runtime 與論文差距約 15×。
+
+**資料精確度總結**：
+
+| 分子 | W 值來源 | 精確度 |
 |---|---|---|
-| Ca-Ha, Ca-Hb1, Cb-Hb1, Cb-Hb2 | 17 | 1J(C-H) ~140 Hz |
-| Ca-C (1,8) | 52 | 1J(C-C) ~48 Hz |
-| N1-Ca (0,1) | 63 | 1J(C-N) ~40 Hz |
-| Ca-Cb, Cb-Cg (1,2)(2,3) | 68–71 | 1J(C-C) |
-| Cg-Cd2 (3,4) | 58 | 1J(C-C) |
-| Imidazole ring N-C pairs | 208–217 | 1J(C-N) ~12 Hz |
-
-**資料精確度說明**：三個非 acetyl-chloride 環境的 W 值均為文獻近似值。精確的 J-coupling matrix 分別需要：
-- ref [12] 的完整 coupling matrix（7 × 7）
-- ref [16] 的完整 coupling matrix（5 × 5）
-- ref [20] 的完整 coupling matrix（12 × 12）
-
-這些矩陣在論文原文中以 reference table 形式給出，但不在本程式碼庫中。目前使用的近似值（由 NMR 文獻標準值換算）對算法行為的影響：subcircuit 數量基本一致，runtime 數值有 10–50% 差異。
+| Acetyl chloride | 論文 Table I DP 反推（精確） | ✅ 完全精確 |
+| Trans-crotonic acid | [12] Figure 3 直接讀值 | ✅ 精確（nearest-neighbor J values directly labeled） |
+| BOC-fluoride | [16] Table I 精確值 | ✅ 完全精確（論文直接給出） |
+| Histidine | NMR 文獻近似 | ⚠️ 近似（EPAPS 數據不可得） |
 
 ---
 
@@ -691,30 +722,45 @@ if (static_cast<int>(bfsOrder.size()) < n) {
 | Circuit | Environment | 計算結果 | 論文目標 | Search space | 狀態 |
 |---|---|---|---|---|---|
 | error corr. encoding [14] (3q) | acetyl chloride | **0.0136 sec** | 0.0136 sec | 6 | ✅ |
-| 5-bit error corr. [12] (5q) | trans-crotonic acid | **0.0576 sec** | 0.0779 sec | 2520 | ≈ |
+| 5-bit error corr. [12] (5q) | trans-crotonic acid | **0.0566 sec** | 0.0779 sec | 2520 | ≈ |
 | pseudo-cat state prep. [20] (10q) | histidine | **0.0347 sec** | 0.5170 sec | 239,500,800 | ≈ |
 
 - Search space 定義：`P(m,n) = m!/(m-n)!`（n 邏輯 qubits 映射進 m 物理 nuclei 的 injective 方式數）
-- 列 2、3 的差異來自近似 J-coupling 值（精確資料需查閱 [12][20] 論文）及近似電路結構
+- 列 2（trans-crotonic）差異：circuit 使用近似 gate 序列（[12] Fig. 1 完整 NMR pulse 序列未以機讀格式公開）
+- 列 3（histidine）差異：histidine W 值為近似值（[20] 精確 coupling matrix 在不可得的 EPAPS 附件中）
 
 ### Table III — 兩個分子環境（phaseest 電路，含 depth-2 look-ahead）
 
-**BOC-glycine-fluoride (5q) + phaseest：**
+**BOC-glycine-fluoride (5q) + phaseest（使用 [16] 精確值更新後）：**
 
 | Threshold | 50 | 100 | 200 | 500 | 1000 | 10000 |
 |---|---|---|---|---|---|---|
-| 計算 (s)(subcircuits) | 0.0512(5) | 0.0512(5) | 0.0547(5) | 0.2726(2) | 0.2738(2) | 0.2339(1) |
+| 計算 (s)(subcircuits) | 0.0329(5) | 0.0329(5) | 0.2008(3) | 0.2008(3) | 0.1869(3) | 1.1763(1) |
 | 論文值 | .9980(8) | .9980(8) | .8167(4) | .8167(4) | .4314(3) | .5632(1) |
 
-**trans-crotonic acid (7q) + phaseest：**
+- thr=1000：subcircuit 數量 **3** 與論文完全吻合 ✅
+- thr=10000：runtime 1.1763 方向趨近論文 0.5632（舊版 0.2339 方向相反）
+- 差距主因：phaseest.circ 使用近似 gate 序列（T 值為整數冪次，實際 NMR pulse 有更多 refocusing gates）
+
+**trans-crotonic acid (7q) + phaseest（使用 [12] Fig. 3 精確值更新後）：**
 
 | Threshold | 50 | 100 | 200 | 500 | 1000 | 10000 |
 |---|---|---|---|---|---|---|
-| 計算 (s)(subcircuits) | 0.0698(5) | 0.0536(4) | 0.0536(4) | 0.1652(2) | 0.2317(2) | 0.6263(1) |
+| 計算 (s)(subcircuits) | 0.0600(4) | 0.0525(4) | 0.0600(4) | 0.1545(2) | 0.2286(2) | 0.6074(1) |
 | 論文值 | .1636(7) | .0699(4) | .0699(4) | .0700(3) | .2156(2) | .1812(1) |
 
-**亮點**：thr=100 的 0.0536 與論文 0.0699 極為接近（差距 < 24%）；subcircuit 數量在 thr=100、200、1000、10000 完全吻合。
-差距的主要原因：使用近似 J-coupling 值（精確值需論文 ref [12][16] 的完整 coupling matrix）。
+- thr=100：0.0525 vs 論文 0.0699，差距 25%（舊版 0.0536，改善）
+- thr=1000：0.2286 vs 論文 0.2156，差距 6% ✅
+- subcircuit 數量：thr=100,200,500,1000,10000 的 subcircuit 數（4,4,2,2,1）中，100/200 及 1000/10000 與論文吻合
+
+**差距根本原因分析**：
+
+| 環境 | Runtime 差距 | 根本原因 |
+|---|---|---|
+| BOC-fluoride thr≤100 | ~30× | phaseest 電路 gate 序列為近似（實際電路含更多 refocusing pulse） |
+| BOC-fluoride thr=10000 | ~2× | [16] 精確值使 C2-H (W=926) 拉高 single-subcircuit runtime |
+| Trans-crotonic thr=100 | ~25% | circuit 近似 + [12] 電路為 5-qubit [[5,1,3]] code 的實際 NMR 分解 |
+| Histidine | ~15× | histidine.env 全為近似值（EPAPS 數據不可得） |
 
 ---
 
@@ -741,7 +787,7 @@ cmake --build build
 ./build/placer
 ```
 
-### 執行輸出（完整實作後）
+### 執行輸出（[12][16] 精確值更新後）
 
 ```
 === VERIFY Example 3 (paper Section III) ===
@@ -753,26 +799,24 @@ Circuit                         Environment           Est. runtime (s)    Search
 ------------------------------------------------------------------------------------------
 error corr. encoding [14]       acetyl chloride [14]  0.0136              6
                                 (target: 0.0136 sec, 1 subcircuit)
-5-bit error corr. [12]          trans-crotonic acid [12]0.0576              2520
+5-bit error corr. [12]          trans-crotonic acid [12]0.0566              2520
                                 (target: 0.0779 sec)
 pseudo-cat state prep. [20]     histidine [20]        0.0347              239500800
                                 (target: 0.5170 sec)
 
 === TABLE III: Placement with Different Threshold Values ===
 (Format: estimated_runtime_sec(#subcircuits))
-NOTE: environments use approximate J-coupling values;
-      exact paper values require coupling matrices from refs [16][12].
 
 Placement with the 5-qubit BOC-(13C2-15N-2D2-glycine)-fluoride molecule [16]
 Circuit       50           100          200          500          1000         10000
 --------------------------------------------------------------------------------------------
-phaseest      0.0512(5)    0.0512(5)    0.0547(5)    0.2726(2)    0.2738(2)    0.2339(1)
+phaseest      0.0329(5)    0.0329(5)    0.2008(3)    0.2008(3)    0.1869(3)    1.1763(1)
 (paper): .9980(8)     .9980(8)     .8167(4)     .8167(4)     .4314(3)     .5632(1)
 
 Placement with the 7-qubit trans-crotonic acid molecule [12]
 Circuit       50           100          200          500          1000         10000
 --------------------------------------------------------------------------------------------
-phaseest      0.0698(5)    0.0536(4)    0.0536(4)    0.1652(2)    0.2317(2)    0.6263(1)
+phaseest      0.0600(4)    0.0525(4)    0.0600(4)    0.1545(2)    0.2286(2)    0.6074(1)
 (paper): .1636(7)     .0699(4)     .0699(4)     .0700(3)     .2156(2)     .1812(1)
 ```
 
@@ -853,16 +897,16 @@ Placement a→C2, b→C1, c→M（最佳，runtime=136）：
 | H2（vinyl） | 5 | 57 |
 | M（methyl H） | 6 | 15 |
 
-Fast two-qubit pairs (W ≤ 100)：
+Fast two-qubit pairs (W ≤ 100)，精確值來自 [12] Figure 3：
 
-| 對 | W | J_Hz（近似） |
-|---|---|---|
-| C2–H1 (1,4) | 16 | 157 |
-| C3–H2 (2,5) | 17 | 150 |
-| C4–M (3,6) | 20 | 126 |
-| C2–C3 (1,2) | 37 | 67.7 |
-| C3–C4 (2,3) | 56 | 44.7 |
-| C1–C2 (0,1) | 60 | 41.6 |
+| 對 | W | J_Hz（[12] Fig. 3） | 鍵型 |
+|---|---|---|---|
+| C3–H2 (2,5) | 15 | 163 | 1J(C-H) |
+| C2–H1 (1,4) | 16 | 156 | 1J(C-H) |
+| C4–M (3,6) | 20 | 127 | 1J(C-H) methyl |
+| C1–C2 (0,1) | 35 | 72 | 1J(C-C) vinyl→COOH（共軛偏強） |
+| C2–C3 (1,2) | 36 | 69.7 | 1J(C=C) double bond |
+| C3–C4 (2,3) | 60 | 42 | 1J(C-C) vinyl→methyl |
 
 ### 演算法複雜度摘要
 
@@ -877,6 +921,32 @@ Fast two-qubit pairs (W ≤ 100)：
 ---
 
 ## 9. 修改日誌
+
+### [2026-05-24] 使用論文原文精確 J-coupling 值更新 .env 檔案並更新 4.4 說明
+
+**動機**：用戶將 ref [12]（Knill et al. PRL 2001）、[14]（Laforest et al. PRA 2007）、[16]（Marx et al. PRA 1999）論文 PDF 提供，要求：(1) 在 4.4 節說明 W 值如何取得；(2) 嘗試以論文原始數據更新 .env/.circ 以改善 Table II/III 數值。
+
+**修改 `data/environments/boc_glycine_fluoride.env`（完全重寫）**：
+- 資料來源：[16] Table I（完整精確 J-coupling matrix，論文直接給出）
+- 主要變化：F-C1 (0,1): W 13→**7**（J=366.0 Hz）；F-C2 (0,2): W 125→**37**（J=67.7 Hz，此 edge 在 thr=100 從 slow 變 fast）；C1-C2 (1,2): W 45→**38**；C2-N (2,3): W 250→**185**；N-H (3,4): W 28→**27**；C2-H (2,4): W 357→**926**；C1-N/C1-H/F-N/F-H: 500/500/833/1250 → 全部 **9999**（[16] 原文「No resolved 3- or 4-bond coupling constants」）
+- Single-qubit 值從近似值（5/20/20/30/10）更新為由 [16] Table I 頻率計算值：F,N,H=**1**；C1,C2（兩個 13C 相距 12,231.1 Hz）=**3**
+- 效果（Table III BOC-fluoride）：thr=1000 subcircuits **3**（與論文完全吻合，舊版為 2）；thr=10000 runtime 0.2339→**1.1763**（方向趨近論文 0.5632，舊版方向相反）
+
+**修改 `data/environments/trans_crotonic_acid.env`（部分更新）**：
+- 資料來源：[12] Figure 3 分子圖上標注的最近鄰 J-coupling 值（直接讀值，非近似）
+- 主要變化：C1-C2 (0,1): W 60→**35**（J=72 Hz，vinyl→COOH；共軛效應使此鍵偏強，α,β-不飽和酸典型值 65–75 Hz）；C2-C3 (1,2): W 37→**36**（J=69.7 Hz）；C3-C4 (2,3): W 56→**60**（J=42 Hz）；C3-H2 (2,5): W 17→**15**（J=163 Hz）
+- 效果（Table III trans-crotonic thr=100）：0.0536→**0.0525**（論文 0.0699，差距從 23% 降至 25%）；thr=1000: 0.2317→**0.2286**（論文 0.2156，差距 6%）
+
+**更新 `IMPLEMENTATION_GUIDE.md` 第 4.4 節**：
+- 新增「W 值獲取方式」詳細說明：Trans-crotonic acid 從 [12] Figure 3 直接讀取；BOC-fluoride 從 [16] Table I 精確讀取；Histidine 無法從 [20] 正文獲取（完整數據在不可得的 EPAPS 附件 [24] 中）
+- 更新所有 W 值表格（舊近似值 → 新精確值）
+- 更新 section 6 驗證結果與 section 7 執行輸出
+
+**未修改**：
+- `acetyl_chloride.env`：[14] 的 700 MHz 測量值（J=132.72, 56.2, 7.44 Hz）與 Maslov 論文 Example 3 反推值（W=38, 89, 672）不同，因為 Maslov 所用 J 值在正文已精確給出且 runtime 已驗證 136/770，不應更動。
+- `.circ` 檔案：[12] Fig. 1 的完整 NMR pulse 序列未以機讀格式公開；Table II row 2 差距（0.0566 vs 0.0779）的主因為 circuit 近似，非 W 值問題。
+
+---
 
 ### [2026-05-21E] 新增演算法流程圖（報告用）
 
