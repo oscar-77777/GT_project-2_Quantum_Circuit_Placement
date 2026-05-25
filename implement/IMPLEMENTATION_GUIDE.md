@@ -584,17 +584,38 @@ W(u,u) = round( π × 10000 / |Δν_u Hz| )
 
 12-spin system（13C/15N-labeled l-histidine）。
 
-**W 值來源：無法從 [20] 論文正文獲取**
+**W 值來源：EPAPS 輔助材料中，EPS 圖形為光柵化點陣圖**
 
-[20] 論文正文中**未提供**完整的 J-coupling matrix。論文 reference [24] 指向 EPAPS（Supplemental Material，AIP 輔助材料存檔）文件，其中才包含完整的化學位移、J-coupling 常數與 T₂ 馳豫時間。EPAPS 文件在 2006 年發表後已無法直接存取。
+[20] 論文正文中**未提供**完整的 J-coupling matrix，完整數據在論文 reference [24]（EPAPS 輔助材料）中。EPAPS 文件已取得（`ref/EPAPS1.tex` + `ref/epfig1.eps`），其中：
+- `EPAPS1.tex`：LaTeX 包裝檔，僅含圖說與 `\includegraphics{epfig1.eps}` 指令。
+- `epfig1.eps`：PostScript 格式，但耦合常數表格以**光柵化點陣圖（bitmap raster）方式嵌入**。分析 EPS 內容確認：PostScript 指令為幾何繪圖（moveto/lineto/curveto）與 binary image data，無可萃取的文字/數字。耦合值儲存為像素，無法以程式讀取。
 
-因此 histidine.env 中的 W 值**全部為近似值**，由以下方式推算：
-- 分子結構已知：l-histidine 的 13C/15N 標記 imidazole 環，含 6 個 13C、3 個 15N、5 個 1H。
+**從 `EPAPS1.tex` 圖說確認分子結構**：
+- 14 個自旋-1/2 核：5個 ¹H、6個 ¹³C、3個 ¹⁵N
+- H₄ 和 H₅（imidazole 環氫）化學位移相同，等效 → 形成一個 qutrit（3 階系統），不計入 qubit 暫存器
+- 實用量子暫存器：**12 qubits + 1 qutrit**
+- 此結構確認 histidine.env 的 12-qubit 架構（3 ¹⁵N + 6 ¹³C + 3 ¹H，排除 H₄/H₅ qutrit）**正確**
+
+**發現並修正的結構性錯誤**：
+
+原始 histidine.env 包含錯誤行：`two 1 10 17.0`（Cα–Hβ1，W=17）。
+
+此行錯誤地將 Cα（索引 1）與 Hβ1（索引 10）之間的耦合標為 1J（W=17 對應 J≈147 Hz，即直接鍵 C-H）。但**Cα 與 Hβ1 並無直接化學鍵**：
+- Hβ1 直接鍵合於 Cβ（索引 2），而非 Cα
+- Cα–Hβ1 實為 2J 耦合（路徑：Cα–Cβ–Hβ1），典型 2J(¹³C-¹H) ≈ 3–6 Hz → W ≈ 417–833
+
+**修正方式**：從 fast 區段移除錯誤的 `two 1 10 17.0`，改在 slow 區段加入：
+- `two 1 10 625.0`（Cα–Hβ1：估計 2J ≈ 4 Hz → W=625）
+- `two 1 11 625.0`（Cα–Hβ2：同路徑 Cα–Cβ–Hβ2，同估計值）
+
+此修正使 Cα–Hβ1 從 fast graph（threshold=200 時存在）移出，runtime 0.0347 → **0.0837**（~6× 差距，舊版 ~15×）。
+
+其餘 histidine.env 值**仍為近似值**，由以下方式推算：
 - 1J(C-H) ≈ 130–145 Hz → W ≈ 17–19（all 13C-1H direct bonds）
-- 1J(C-C) ≈ 40–55 Hz → W ≈ 45–63（based on histidine backbone and ring bonds）
+- 1J(C-C) ≈ 40–55 Hz → W ≈ 45–63（backbone and ring bonds）
 - 1J(C-N) ≈ 10–15 Hz → W ≈ 167–250（heteronuclear 1-bond）
 
-**精確結果**需要 EPAPS [24] 數據；目前近似值導致 Table II/III 的 pseudo-cat state runtime 與論文差距約 15×。
+精確結果仍需 EPAPS 點陣圖中的實際測量值；目前近似值導致 pseudo-cat state runtime 與論文差距約 **6×**。
 
 **資料精確度總結**：
 
@@ -603,7 +624,7 @@ W(u,u) = round( π × 10000 / |Δν_u Hz| )
 | Acetyl chloride | 論文 Table I DP 反推（精確） | ✅ 完全精確 |
 | Trans-crotonic acid | [12] Figure 3 直接讀值 | ✅ 精確（nearest-neighbor J values directly labeled） |
 | BOC-fluoride | [16] Table I 精確值 | ✅ 完全精確（論文直接給出） |
-| Histidine | NMR 文獻近似 | ⚠️ 近似（EPAPS 數據不可得） |
+| Histidine | NMR 文獻近似（含結構性錯誤修正） | ⚠️ 近似（EPAPS 點陣圖無法解析）|
 
 ---
 
@@ -723,11 +744,11 @@ if (static_cast<int>(bfsOrder.size()) < n) {
 |---|---|---|---|---|---|
 | error corr. encoding [14] (3q) | acetyl chloride | **0.0136 sec** | 0.0136 sec | 6 | ✅ |
 | 5-bit error corr. [12] (5q) | trans-crotonic acid | **0.0566 sec** | 0.0779 sec | 2520 | ≈ |
-| pseudo-cat state prep. [20] (10q) | histidine | **0.0347 sec** | 0.5170 sec | 239,500,800 | ≈ |
+| pseudo-cat state prep. [20] (10q) | histidine | **0.0837 sec** | 0.5170 sec | 239,500,800 | ≈ |
 
 - Search space 定義：`P(m,n) = m!/(m-n)!`（n 邏輯 qubits 映射進 m 物理 nuclei 的 injective 方式數）
 - 列 2（trans-crotonic）差異：circuit 使用近似 gate 序列（[12] Fig. 1 完整 NMR pulse 序列未以機讀格式公開）
-- 列 3（histidine）差異：histidine W 值為近似值（[20] 精確 coupling matrix 在不可得的 EPAPS 附件中）
+- 列 3（histidine）差異：histidine W 值為近似值（EPAPS 為點陣圖無法萃取）；Cα–Hβ1 結構性錯誤已修正（W 17→625）
 
 ### Table III — 兩個分子環境（phaseest 電路，含 depth-2 look-ahead）
 
@@ -760,7 +781,7 @@ if (static_cast<int>(bfsOrder.size()) < n) {
 | BOC-fluoride thr≤100 | ~30× | phaseest 電路 gate 序列為近似（實際電路含更多 refocusing pulse） |
 | BOC-fluoride thr=10000 | ~2× | [16] 精確值使 C2-H (W=926) 拉高 single-subcircuit runtime |
 | Trans-crotonic thr=100 | ~25% | circuit 近似 + [12] 電路為 5-qubit [[5,1,3]] code 的實際 NMR 分解 |
-| Histidine | ~15× | histidine.env 全為近似值（EPAPS 數據不可得） |
+| Histidine | ~6× | Cα–Hβ1 結構性錯誤修正後（W=17→625）；其餘 W 值為近似值（EPAPS 點陣圖無法萃取） |
 
 ---
 
@@ -787,7 +808,7 @@ cmake --build build
 ./build/placer
 ```
 
-### 執行輸出（[12][16] 精確值更新後）
+### 執行輸出（[12][16] 精確值 + histidine Cα–Hβ1 錯誤修正後）
 
 ```
 === VERIFY Example 3 (paper Section III) ===
@@ -801,7 +822,7 @@ error corr. encoding [14]       acetyl chloride [14]  0.0136              6
                                 (target: 0.0136 sec, 1 subcircuit)
 5-bit error corr. [12]          trans-crotonic acid [12]0.0566              2520
                                 (target: 0.0779 sec)
-pseudo-cat state prep. [20]     histidine [20]        0.0347              239500800
+pseudo-cat state prep. [20]     histidine [20]        0.0837              239500800
                                 (target: 0.5170 sec)
 
 === TABLE III: Placement with Different Threshold Values ===
@@ -921,6 +942,79 @@ Fast two-qubit pairs (W ≤ 100)，精確值來自 [12] Figure 3：
 ---
 
 ## 9. 修改日誌
+
+### [2026-05-25] 重建 five_bit_error_corr.circ 與確認 .circ gate T 值規則
+
+**動機**：用戶懷疑 .circ 的 gate 轉換（abstract → ZZ/Ry/Rx）有誤，影響 Table II 結果。
+
+**T 值規則確認（Maslov Section II PRELIMINARIES）**：
+- T=1.0：Ry(90°)、Rx(90°)、ZZ(90°)，以及其負方向版本 Ry(-90°)、Rx(-90°)、ZZ(-90°)
+- T=0：Rz（任何角度），free gate，僅改變 rotating frame
+- T 與角度成正比：T(gate(θ°)) = θ/90（ZZ(180°)→T=2，ZZ(45°)→T=0.5 等）
+
+**電路診斷結果**：
+
+| 電路 | 問題 | 影響 |
+|---|---|---|
+| error_corr_encoding | 無，完全正確 | ✅ 136/770 吻合 |
+| five_bit_error_corr | ❌ 用 K₅（10 ZZ 對）；缺 Rx(X90) gates | 0.0566 vs 0.0779 |
+| pseudo_cat_state | ❌ 缺 ZZ(-90°)、X90 gates；拓樸不符 histidine 分子鏈 | 0.0837 vs 0.5170 |
+| phaseest | ⚠️ 抽象結構正確，但缺 NMR refocusing ZZ(180°) pulses | Table III 差距 |
+
+**為何 K₅ 給出 0.0566（低於論文 0.0779）**：
+K₅ 允許 placer 選最快的 ZZ 對，迴避慢交互作用。
+實際 [[5,1,3]] code 由穩定子 XZZXI, IXZZX, XIXZZ, ZXIXZ 決定，**強制需要部分非鄰近 qubit 交互作用**（如 M 與 C2/C3 等長程對，W 值高），這些 slow interaction 是 paper 得到較高 runtime 的原因。
+
+**重建 `five_bit_error_corr.circ`（[12] Fig. 1 encoding network）**：
+- ZZ 對從 K₅(10 對) → 分子鏈路徑（4 對）：q1-q0-q2-q3-q4
+  對應 trans-crotonic acid 鏈：M(6)—C4(3)—C3(2)—C2(1)—C1(0)，W=20,60,36,35
+- 修正單量子位元 gates（依 [12] Fig. 1）：
+
+  | Qubit | 舊（K₅版） | 新（[12] Fig.1） |
+  |---|---|---|
+  | q1 (M) | Y90 + Y90 | Y90 + Rz(free) + X90 |
+  | q0 (data) | Y90 | X90 |
+  | q2 (C2) | Y90 + Y90 | Y90 + Y90（不變） |
+  | q3 (C3) | Y90 + Y90 | X90 + Y90 |
+  | q4 (C4) | Y90 + Y90 | X90（移除多餘 Y90） |
+
+- 總 gate 數：18（舊 K₅ 版：24）；ZZ 對：4（舊：10）
+
+**預期 runtime 變化**：
+新電路（chain topology）所有 ZZ 都是 fast interaction，預計 runtime 約 0.024 s，**低於**舊版 0.0566 和論文 0.0779。要完全還原 0.0779 需要包含 [[5,1,3]] 穩定子所要求的非鄰近 ZZ 對（這些對在 [12] Fig. 1 解析度下無法確定），屬不可規避的近似限制。
+
+**pseudo_cat_state.circ**：用戶正手動重建，確認除 Rz(T=0) 外所有 gate 均 T=1.0。
+
+### [2026-05-25] 審視 [20] EPAPS 原始檔案、電路驗證、修正 histidine.env 結構性錯誤
+
+**動機**：用戶取得 [20] 的 EPAPS 輔助材料原始檔（`ref/EPAPS1.tex` + `ref/epfig1.eps`），要求重新審視 histidine.env 是否可改善，並確認所有 `.circ` 電路是否正確符合 [12][14][16][20]。
+
+**EPAPS 檔案分析（`ref/EPAPS1.tex` + `ref/epfig1.eps`）**：
+- `EPAPS1.tex`：LaTeX 包裝，圖說確認分子為 14 個自旋核（5 ¹H, 6 ¹³C, 3 ¹⁵N），H₄/H₅ 等效形成 qutrit → 12 qubit + 1 qutrit 暫存器
+- `epfig1.eps`：PostScript 檔，**耦合常數表為光柵化點陣圖嵌入**（binary image data），PostScript 程式碼僅含幾何繪圖與 binary image stream，**無法萃取數值**
+
+**修正 `data/environments/histidine.env`（結構性錯誤修正）**：
+- 發現錯誤：`two 1 10 17.0`（Cα–Hβ1，W=17）錯誤標為 1J 直接鍵 C-H（J≈147 Hz）
+- 根本原因：Cα（索引 1）與 Hβ1（索引 10）在 histidine 中無直接化學鍵；Hβ1 直接鍵於 Cβ（索引 2）
+- 修正：移除錯誤的 W=17 fast entry；在 slow 區段加入：
+  - `two 1 10 625.0`（Cα–Hβ1，2J≈4 Hz，路徑 Cα–Cβ–Hβ1）
+  - `two 1 11 625.0`（Cα–Hβ2，2J≈4 Hz，路徑 Cα–Cβ–Hβ2）
+- 效果：Table II 列 3 runtime 0.0347 → **0.0837**（論文目標 0.5170；差距從 ~15× 改善至 ~6×）
+
+**電路驗證結果（對照 [12][14][16][20]）**：
+
+| 電路 | 參考 | 狀態 | 說明 |
+|---|---|---|---|
+| `error_corr_encoding.circ`（3q） | [14] | ✅ 完全正確 | Runtime 136/770 精確符合論文 Example 3；interaction graph {a-b, b-c} 已驗證 |
+| `five_bit_error_corr.circ`（5q） | [12] | ⚠️ 近似 | K₅ interaction graph 正確（[[5,1,3]] code 所有 stabilizer 涉及全部 5 pairs）；exact gate sequence from [12] Fig. 1 不可得（NMR pulse sequence 未以機讀格式公開） |
+| `phaseest.circ`（5q） | N&C §5.2 | ⚠️ 近似 | 標準 phase estimation 結構正確（H → controlled-U^{2^k} → IQFT）；K₅ interaction graph；T 值（1,2,4,8,0.5,0.25,0.125）符合 IQFT 和 CU 所需角度；實際 NMR 電路有更多 refocusing pulses |
+| `pseudo_cat_state.circ`（10q） | [20] | ⚠️ 近似 | 10 qubits 映射至 12-qubit histidine；結構含線性鏈（9 ZZ）+ 長程糾纏（5 ZZ）；[20] 完整 NMR pulse 序列不可得 |
+
+**未修改**：
+- 四個 `.circ` 電路：近似 gate 序列已是目前可得最佳；exact pulse sequences 不可得。
+- histidine.env 其餘 W 值：EPAPS 點陣圖無法解析，維持 NMR 文獻近似值。
+
+---
 
 ### [2026-05-24] 使用論文原文精確 J-coupling 值更新 .env 檔案並更新 4.4 說明
 
