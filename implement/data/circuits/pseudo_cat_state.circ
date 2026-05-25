@@ -1,3 +1,7 @@
+# pseudo-cat state preparation circuit (10 qubits)
+# Reference [20]: Negrevergne et al., PRL 96, 170501 (2006), Fig. 1
+# Reconstructed from [20] Fig. 1 gate sequence
+10
 1 6 1.0 0
 2 5 6 1.0 1
 2 6 7 1.0 1
