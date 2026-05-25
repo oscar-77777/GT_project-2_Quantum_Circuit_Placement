@@ -743,12 +743,12 @@ if (static_cast<int>(bfsOrder.size()) < n) {
 | Circuit | Environment | 計算結果 | 論文目標 | Search space | 狀態 |
 |---|---|---|---|---|---|
 | error corr. encoding [14] (3q) | acetyl chloride | **0.0136 sec** | 0.0136 sec | 6 | ✅ |
-| 5-bit error corr. [12] (5q) | trans-crotonic acid | **0.0566 sec** | 0.0779 sec | 2520 | ≈ |
+| 5-bit error corr. [12] (5q) | trans-crotonic acid | **0.0221 sec** | 0.0779 sec | 2520 | ≈ |
 | pseudo-cat state prep. [20] (10q) | histidine | **0.0837 sec** | 0.5170 sec | 239,500,800 | ≈ |
 
 - Search space 定義：`P(m,n) = m!/(m-n)!`（n 邏輯 qubits 映射進 m 物理 nuclei 的 injective 方式數）
-- 列 2（trans-crotonic）差異：circuit 使用近似 gate 序列（[12] Fig. 1 完整 NMR pulse 序列未以機讀格式公開）
-- 列 3（histidine）差異：histidine W 值為近似值（EPAPS 為點陣圖無法萃取）；Cα–Hβ1 結構性錯誤已修正（W 17→625）
+- 列 2（trans-crotonic）差異：five_bit 已從 K₅(10 ZZ) 重建為 [12] Fig.1 分子鏈路徑（4 ZZ），chain-only topology 使 placer 只接觸快速 interaction，runtime 反而低於論文 0.0779；[[5,1,3]] 穩定子強制的非鄰近慢 ZZ 對（paper 結果 0.0779 的來源）在 Fig. 1 解析度下無法確定
+- 列 3（histidine）差異：histidine W 值為近似值（EPAPS 為點陣圖無法萃取）；Cα–Hβ1 結構性錯誤已修正（W 17→625）；pseudo_cat_state 已由用戶依 [20] Fig. 1 手動重建
 
 ### Table III — 兩個分子環境（phaseest 電路，含 depth-2 look-ahead）
 
@@ -820,7 +820,7 @@ Circuit                         Environment           Est. runtime (s)    Search
 ------------------------------------------------------------------------------------------
 error corr. encoding [14]       acetyl chloride [14]  0.0136              6
                                 (target: 0.0136 sec, 1 subcircuit)
-5-bit error corr. [12]          trans-crotonic acid [12]0.0566              2520
+5-bit error corr. [12]          trans-crotonic acid [12]0.0221              2520
                                 (target: 0.0779 sec)
 pseudo-cat state prep. [20]     histidine [20]        0.0837              239500800
                                 (target: 0.5170 sec)
@@ -942,6 +942,27 @@ Fast two-qubit pairs (W ≤ 100)，精確值來自 [12] Figure 3：
 ---
 
 ## 9. 修改日誌
+
+### [2026-05-25B] pseudo_cat_state.circ 用戶重建 + 實際執行結果
+
+**動機**：用戶依據 [20] Fig. 1 手動重建 pseudo_cat_state.circ（原版 gate 結構有誤），並驗證 five_bit_error_corr.circ chain 重建後的實際 runtime。
+
+**pseudo_cat_state.circ 重建**：
+- 用戶對照 [20] Fig. 1 門序列手動改寫全部 gate 行；加入 4 行 header（# 注釋 × 3 + `10`）解決 `fromFile()` 解析錯誤（舊版首行 `1 6 1.0 0` 被誤讀為 n=1）
+- gate 型態確認：除 Z rotation（T=0）外，所有 ZZ、X90、Y90、X(-90)、Y(-90) 均設 T=1.0
+- 結果：runtime **0.0837 sec**（論文 0.5170；差距 ~6×；histidine W 值為近似值，差距不可消除）
+
+**five_bit_error_corr.circ chain 重建實際結果**：
+- K₅(10 ZZ) → chain path(4 ZZ) 後，runtime **0.0566 → 0.0221 sec**
+- 低於論文目標 0.0779 的根本原因：chain 路徑只含 fast interaction（W=20,35,36,60），placer 不需承擔 [[5,1,3]] 穩定子所要求的非鄰近慢 ZZ 對；此限制不可規避（Fig. 1 解析度不足以確定這些對）
+
+**Table II 結果更新**：
+| 電路 | 舊結果 | 新結果 | 論文目標 |
+|---|---|---|---|
+| 5-bit error corr. [12] | 0.0566 | **0.0221** | 0.0779 |
+| pseudo-cat state prep. [20] | — | **0.0837** | 0.5170 |
+
+---
 
 ### [2026-05-25] 重建 five_bit_error_corr.circ 與確認 .circ gate T 值規則
 
