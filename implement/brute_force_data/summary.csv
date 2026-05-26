@@ -1,0 +1,4 @@
+row,circuit,environment,nLog,nPhys,searchSpace,algoResult,bruteMin,isSampled,nSamples
+1,error_corr_encoding,acetyl_chloride,3,3,6,136,136,0,6
+2,five_bit_error_corr,trans_crotonic_acid,5,7,2520,221,221,0,2520
+3,pseudo_cat_state,histidine,10,12,239500800,837,308,1,100000
