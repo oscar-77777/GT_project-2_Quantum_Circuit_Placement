@@ -1,3 +1,8 @@
+# Quantum Circuit Placement — Implementation Guide
+
+Based on: *Quantum Circuit Placement*, Maslov, Falconer & Mosca, IEEE TCAD 2008.
+
+---
 ## 目錄
 
 1. [專案目標](#1-專案目標)
