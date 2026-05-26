@@ -21,14 +21,20 @@
 namespace {
 
 struct MonoState {
-    int                              patternSize;
+    int                              patternSize; // number of logical qubits in the pattern
     const std::vector<std::vector<int>>& patternAdj;
     const std::vector<std::vector<int>>& targetAdj;
-    std::vector<int>                 mapping;
-    std::vector<bool>                used;
+    std::vector<int>                 mapping; // mapping of the logical qubits to the physical nuclei
+    std::vector<bool>                used; // used physical nuclei
     std::vector<std::vector<int>>    results;
     int                              maxResults;
 
+    // DFS backtracking for subgraph monomorphism: map logical qubit `node` to nucleus `t`.
+    // `node` is the pattern vertex currently being placed (0 .. patternSize-1).
+    // `t` is a candidate target nucleus; skip when used[t] (injective placement).
+    // `prev` loops over logical qubits 0..node-1 already in mapping; if pattern has
+    // edge (node,prev), target must have edge (t,mapping[prev]).
+    // `ok` is true while `t` remains valid; set false on edge mismatch, then try next t.
     void backtrack(int node) {
         if (static_cast<int>(results.size()) >= maxResults) return;
         if (node == patternSize) {
@@ -41,14 +47,14 @@ struct MonoState {
             bool ok = true;
             for (int prev = 0; prev < node && ok; ++prev) {
                 bool neighborInPattern = false;
-                for (int nb : patternAdj[node])
+                for (int nb : patternAdj[node]) // check if the previous logical qubit is a neighbor of the current logical qubit
                     if (nb == prev) { neighborInPattern = true; break; }
                 if (!neighborInPattern) continue;
                 int tp = mapping[prev];
                 bool neighborInTarget = false;
                 for (int nb : targetAdj[t])
                     if (nb == tp) { neighborInTarget = true; break; }
-                if (!neighborInTarget) ok = false;
+                if (!neighborInTarget) ok = false; // meaning previous is pattern edge but not target edge
             }
             if (!ok) continue;
             mapping[node] = t;
