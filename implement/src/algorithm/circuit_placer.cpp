@@ -161,6 +161,7 @@ int CircuitPlacer::basicPlacement(const QuantumCircuit& circuit, int startGate, 
     QuantumCircuit sub = circuit.subcircuit(startGate, endGate);
     double bestRuntime = std::numeric_limits<double>::max();
 
+    // Try each monomorphism and select the one with the minimum subcircuit runtime
     for (auto& mono : bestMonos) {
         Placement candidate(nQ, nN);
         for (int q = 0; q < nQ; ++q)
