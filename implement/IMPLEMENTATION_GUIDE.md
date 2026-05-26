@@ -1570,8 +1570,8 @@ main.cpp 只需 include `circuit_placer.h` 和 `permutation_router.h`（兩者�
 
 | # | 函數名 | 類 / 命名空間 | 原始碼行 | 核心職責 |
 |---|---|---|---|---|
-| 1 | `MonoState::backtrack` | `anonymous namespace` | 32–60 | VF2-style 回溯：為每個 logical qubit 試配 nucleus |
-| 2 | `findMonomorphisms` | `anonymous namespace` | 63–76 | 建立 MonoState、啟動 backtrack、回傳所有合法映射 |
+| 1 | `MonoState::backtrack` | `anonymous namespace` | 38–66 | VF2-style 回溯：為每個 logical qubit 試配 nucleus |
+| 2 | `findMonomorphisms` | `anonymous namespace` | 69–82 | 建立 MonoState、啟動 backtrack、回傳所有合法映射 |
 | 3 | `CircuitPlacer::CircuitPlacer` | `CircuitPlacer` | 84–86 | 建構子：儲存 env\_ 與 threshold\_ |
 | 4 | `CircuitPlacer::subcircuitRuntime` | `CircuitPlacer` | 88–90 | 委託 computeRuntime 計算單一子電路執行時間 |
 | 5 | `CircuitPlacer::totalRuntime` | `CircuitPlacer` | 92–101 | 累加所有子電路 + SWAP 代價 |
@@ -1597,6 +1597,52 @@ main.cpp 只需 include `circuit_placer.h` 和 `permutation_router.h`（兩者�
 | `used[t]` | `vector<bool>` | nucleus t 是否已被某個 qubit 佔用 |
 | `results` | `vector<vector<int>>` | 收集到的所有合法映射 |
 | `maxResults` | `int` | 搜尋上界（預設 100） |
+
+#### 迴圈變數：`node`、`t`、`prev`、`ok`
+
+`backtrack` 用 DFS 依序為 logical qubit `0, 1, …, patternSize-1` 指派 nucleus。下列四個名稱只出現在 `backtrack(int node)` 本體（不含 `MonoState` 成員）：
+
+| 變數 | 出現位置 | 語義 |
+|---|---|---|
+| **`node`** | 函數參數 | 目前正在試配的 **pattern 頂點**（logical qubit 編號）。`node == patternSize` 表示 0..patternSize-1 都已指派完，可收一組解。 |
+| **`t`** | 外層 `for (t = 0 .. targetSize-1)` | 候選的 **target 頂點**（physical nucleus）。嘗試令 `mapping[node] = t`；若 `used[t]` 為真則 `continue`（單射：一個 nucleus 不能對兩個 qubit）。 |
+| **`prev`** | 內層 `for (prev = 0 .. node-1)` | 在 DFS 順序上 **比 `node` 更早、且已寫入 `mapping` 的 logical qubit**。只拿來檢查「若 pattern 有邊 (node, prev)，target 是否也有邊 (t, mapping[prev])」。 |
+| **`ok`** | 每個 `t` 試配前設 `true` | 目前這個 **`t` 是否仍合法**。內層掃完所有 `prev` 後若為 `false`，表示某條必需的 pattern 邊在 target 對不上 → `continue` 改試下一個 `t`。 |
+
+**`node` 與 `prev` 的關係**
+
+- 固定一層遞迴時，`node` 是「當前要填的那一格」，`prev` 是「上面幾格已填好的」。
+- 只檢查 `prev < node`，因為回溯按編號遞增填寫；無向邊在 pattern / target 鄰接表雙向都有，之後填更大的 qubit 時會再檢查反向，不會漏邊。
+- 若 pattern 中 `(node, prev)` **沒有**邊，內層對該 `prev` 直接 `continue`，不要求 target 上 `(t, mapping[prev])` 相鄰。
+
+**`t` 與 `ok` 的關係**
+
+- 對同一個 `node`，外層枚舉多個 `t`；每換一個 `t` 就重新 `ok = true`。
+- 內層用 `prev` 與 `patternAdj[node]`、`targetAdj[t]` 更新 `ok`；`for (prev = 0; prev < node && ok)` 在 `ok` 變 false 後不再檢查剩餘的 `prev`。
+- 僅當 `ok` 仍為 true 時才執行：`mapping[node]=t`、`used[t]=true`、`backtrack(node+1)`，然後回溯還原。
+
+**與 `mapping`、`used` 的對應**
+
+```
+層次（DFS 深度 = node）     mapping[0..node-1] 已固定    正在試 mapping[node] = t
+                              ↑ prev 取這段              ↑ node
+                              used[] 標記哪些 t 已被佔用
+```
+
+**一輪試配的流程（`node` 固定、`t` 枚舉）**
+
+```
+for t:
+  used[t]? → continue
+  ok = true
+  for prev in 0..node-1:
+    pattern 有邊 (node,prev)?  否 → 略過此 prev
+    target 有邊 (t, mapping[prev])?  否 → ok=false
+  ok?  否 → continue（換下一個 t）
+  佔用 t，backtrack(node+1)，釋放 t
+```
+
+原始碼對照（`circuit_placer.cpp` 第 38–65 行）與上表一致；`tp = mapping[prev]` 即 target 上「`prev` 已對到的 nucleus」。
 
 #### backtrack(node) 邏輯
 
