@@ -82,8 +82,7 @@ temp/
 !.env.example
 
 # Generated figures
-implement/figures/output/
-implement/brute_force_data/
+
 
 # Python (if used for scripts or analysis)
 __pycache__/
