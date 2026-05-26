@@ -944,7 +944,7 @@ Fast two-qubit pairs (W ≤ 100)，精確值來自 [12] Figure 3：
 
 本節詳細說明 `main()` 到最終 runtime 輸出的完整執行路徑，包含所有物件建立、函數呼叫與資料傳遞細節。
 
-### 10.1 呼叫架構（Call Hierarchy）
+### 9.1 呼叫架構（Call Hierarchy）
 
 ```
 main()
@@ -997,7 +997,7 @@ runPlacement(env, circ, threshold):
 
 ---
 
-### 10.2 verifyExample3() — 直接 computeRuntime 驗證
+### 9.2 verifyExample3() — 直接 computeRuntime 驗證
 
 verifyExample3() **不使用 CircuitPlacer**，直接手動建立 Placement，用於驗證 W 值與電路定義的正確性。
 
@@ -1041,7 +1041,7 @@ verifyExample3() **不使用 CircuitPlacer**，直接手動建立 Placement，�
 
 ---
 
-### 10.3 runPlacement() — 核心輔助函數
+### 9.3 runPlacement() — 核心輔助函數
 
 ```cpp
 struct RunResult { double totalUnits; int subcircuitCount; };
@@ -1118,7 +1118,7 @@ return { total, subcircuits.size() }
 
 ---
 
-### 10.4 runTableII() — 三列詳解
+### 9.4 runTableII() — 三列詳解
 
 **共用參數**：`threshold = 200`（論文 Table II 固定值）
 
@@ -1155,7 +1155,7 @@ finalRuntime = 136 units + 0×swapCost = 136 units = 0.0136 s ✅
 
 ---
 
-### 10.5 runTableIII() — Threshold 掃描詳解
+### 9.5 runTableIII() — Threshold 掃描詳解
 
 ```cpp
 const std::vector<Weight> thresholds = {50, 100, 200, 500, 1000, 10000};
@@ -1195,7 +1195,7 @@ cell << std::fixed << std::setprecision(4) << secs << "(" << r.subcircuitCount <
 
 ---
 
-### 10.6 物件生命週期與所有權
+### 9.6 物件生命週期與所有權
 
 ```
 main() stack frame
@@ -1238,7 +1238,7 @@ main() stack frame
 
 ---
 
-### 10.7 類別角色與相互關係總表
+### 9.7 類別角色與相互關係總表
 
 | 類別 / 結構 | 定義位置 | 角色 | 關鍵方法 | 主要被誰建立 |
 |---|---|---|---|---|
@@ -1257,7 +1257,7 @@ main() stack frame
 
 ## 10. 完整程式碼技術細節報告
 
-### 11.1 型別系統（types.h）
+### 10.1 型別系統（types.h）
 
 ```cpp
 using QubitID   = int;       // 邏輯量子位元索引（0-based，用於電路描述）
@@ -1273,7 +1273,7 @@ constexpr NucleusID UNASSIGNED = -1;  // 未指定 sentinel，用於 Placement.m
 
 ---
 
-### 11.2 Gate（gate.h）
+### 10.2 Gate（gate.h）
 
 ```cpp
 enum class GateType { Single, Two };
@@ -1295,7 +1295,7 @@ struct Gate {
 
 ---
 
-### 11.3 PhysicalEnvironment（physical_env.h/.cpp）
+### 10.3 PhysicalEnvironment（physical_env.h/.cpp）
 
 **記憶體配置**：
 ```
@@ -1330,7 +1330,7 @@ return W * baseTime;
 
 ---
 
-### 11.4 QuantumCircuit（quantum_circuit.h/.cpp）
+### 10.4 QuantumCircuit（quantum_circuit.h/.cpp）
 
 **computeRuntime DP — 完整程式碼對應說明**：
 
@@ -1371,7 +1371,7 @@ return *std::max_element(time.begin(), time.end());
 
 ---
 
-### 11.5 Placement（placement.h/.cpp）
+### 10.5 Placement（placement.h/.cpp）
 
 **permutationTo() 完整說明**：
 
@@ -1411,7 +1411,7 @@ perm = [2, 0, 1]
 
 ---
 
-### 11.6 CircuitPlacer — findMonomorphisms 詳細追蹤
+### 10.6 CircuitPlacer — findMonomorphisms 詳細追蹤
 
 以 error-corr encoding + threshold=200（乙醯氯）為例：
 
@@ -1456,7 +1456,7 @@ results = [[0,1,2], [2,1,0]]
 
 ---
 
-### 11.7 PermutationRouter — routeSubgraph 完整機制
+### 10.7 PermutationRouter — routeSubgraph 完整機制
 
 **state/target 的語意**：
 - `state[i]` = 目前 nucleus i 持有哪個邏輯值（初始 = identity [0,1,...,n-1]）
@@ -1507,7 +1507,7 @@ Phase B:
 
 ---
 
-### 11.8 Header 依賴關係圖
+### 10.8 Header 依賴關係圖
 
 ```
 types.h
@@ -1526,7 +1526,7 @@ main.cpp 只需 include `circuit_placer.h` 和 `permutation_router.h`（兩者�
 
 ---
 
-### 11.9 演算法不變量（Invariants）
+### 10.9 演算法不變量（Invariants）
 
 **PlacementResult 不變量**：
 - `subcircuits.size() == placements.size()`（必須相同）
@@ -1551,7 +1551,7 @@ main.cpp 只需 include `circuit_placer.h` 和 `permutation_router.h`（兩者�
 
 ---
 
-### 11.10 關鍵數值常數說明
+### 10.10 關鍵數值常數說明
 
 | 常數 | 位置 | 值 | 意義 |
 |---|---|---|---|
