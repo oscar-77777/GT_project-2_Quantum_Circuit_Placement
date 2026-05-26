@@ -15,6 +15,8 @@ Based on: *Quantum Circuit Placement*, Maslov, Falconer & Mosca, IEEE TCAD 2008.
 7. [建置與執行](#7-建置與執行)
 8. [論文關鍵資料整理](#8-論文關鍵資料整理)
 9. [修改日誌](#9-修改日誌)
+10. [main.cpp 完整執行流程（Table II & III）](#10-maincpp-完整執行流程table-ii--iii)
+11. [完整程式碼技術細節報告](#11-完整程式碼技術細節報告)
 
 ---
 
@@ -1063,6 +1065,33 @@ K₅ 允許 placer 選最快的 ZZ 對，迴避慢交互作用。
 
 ---
 
+### [2026-05-26] 新增 Section 10 & 11：main.cpp 執行流程詳解 + 完整技術細節報告
+
+**目標**：對整個程式碼撰寫完整且有結構性的技術細節說明，供報告使用。
+
+**新增 Section 10（main.cpp 完整執行流程）**：
+- 10.1 呼叫架構（完整 call hierarchy tree）
+- 10.2 verifyExample3() 逐步 computeRuntime DP 追蹤（含 time[] 陣列狀態）
+- 10.3 runPlacement() 四個步驟詳解（swapCost→place→routeBetween→totalRuntime）
+- 10.4 runTableII() 三列對比（環境/電路規模、fast graph 差異、執行細節）
+- 10.5 runTableIII() threshold 掃描機制、fast graph 連通性分析、輸出格式說明
+- 10.6 物件生命週期與所有權圖（stack frame + by value/const& 說明）
+- 10.7 類別角色與相互關係總表（7 個類別 + RunResult struct）
+
+**新增 Section 11（完整技術細節報告）**：
+- 11.1 型別系統（types.h）：設計取捨分析
+- 11.2 Gate struct 詳解：level 欄位的實際用途與 DP 中的語意
+- 11.3 PhysicalEnvironment：W=0 的語意差異（computeRuntime vs fastAdjacency）
+- 11.4 computeRuntime DP：完整程式碼對應說明（每行邏輯）
+- 11.5 permutationTo() 詳解：3-cycle 範例追蹤
+- 11.6 findMonomorphisms 詳細 backtracking 追蹤（error-corr + threshold=200）
+- 11.7 routeSubgraph Phase A/B 機制：hasMisplaced、even/odd step、Leaf-target override
+- 11.8 Header 依賴關係圖
+- 11.9 演算法不變量（4 個結構不變量）
+- 11.10 關鍵數值常數說明表（maxResults=100, 0.05 係數, maxSteps, threshold=200 等）
+
+---
+
 ### [2026-05-25C] 新增搜尋空間最小值證明圖
 
 **目標**：証明程式沒有錯誤——演算法在有效的搜尋空間內找到最小值，與論文差距純粹來自 .env/.circ 近似資料。
@@ -1341,3 +1370,626 @@ Trans-crotonic acid 在 threshold=100/200（均為 4 subcircuits）的 runtime �
 - Table II 列 1：0.0136 sec ✅ 完全吻合
 - Table II 列 2、3：與論文有差異（原因：使用近似 J-coupling 值）
 - Table III：subcircuit 數量在多數 threshold 點與論文吻合，runtime 有差異（近似值）
+
+---
+
+## 10. main.cpp 完整執行流程（Table II & III）
+
+本節詳細說明 `main()` 到最終 runtime 輸出的完整執行路徑，包含所有物件建立、函數呼叫與資料傳遞細節。
+
+### 10.1 呼叫架構（Call Hierarchy）
+
+```
+main()
+├── verifyExample3()
+│   ├── buildAcetylChloride() → PhysicalEnvironment (in-code, no file I/O)
+│   ├── buildErrorCorrEncoding() → QuantumCircuit (in-code, no file I/O)
+│   ├── Placement p(3,3)  p.assign(0,2) p.assign(1,1) p.assign(2,0)
+│   └── circ.computeRuntime(p, env) → 136.0
+│
+├── runTableII()
+│   ├── [Row 1] buildAcetylChloride() + buildErrorCorrEncoding()
+│   │   └── runPlacement(env, circ, 200) → RunResult{1360, 1}
+│   ├── [Row 2] PhysicalEnvironment::fromFile("trans_crotonic_acid.env")
+│   │          + QuantumCircuit::fromFile("five_bit_error_corr.circ")
+│   │   └── runPlacement(env, circ, 200) → RunResult{221, N}
+│   └── [Row 3] PhysicalEnvironment::fromFile("histidine.env")
+│              + QuantumCircuit::fromFile("pseudo_cat_state.circ")
+│       └── runPlacement(env, circ, 200) → RunResult{837, N}
+│
+└── runTableIII()
+    ├── [BOC] fromFile("boc_glycine_fluoride.env") + fromFile("phaseest.circ")
+    │   └── for thr in {50,100,200,500,1000,10000}:
+    │       runPlacement(env, circ, thr) → RunResult
+    └── [TCA] fromFile("trans_crotonic_acid.env") + fromFile("phaseest.circ")
+        └── for thr in {50,100,200,500,1000,10000}:
+            runPlacement(env, circ, thr) → RunResult
+
+runPlacement(env, circ, threshold):
+    find swapCost = min nonzero twoQubitWeight in env
+    ├── CircuitPlacer placer(env, threshold)
+    │   └── placer.place(circ) → PlacementResult
+    │       └── while startGate < numGates:
+    │           ├── basicPlacement(circ, startGate, p)
+    │           │   ├── env.fastAdjacency(threshold) → adj[][]
+    │           │   ├── findMonomorphisms(patternAdj, fastAdj, 100) → monos
+    │           │   └── circ.subcircuit(start, end) + computeRuntime → best mono
+    │           └── fineTuning(sub, p, &circ, endGate)
+    │               └── scoreplacement(sub, p, fullCircuit, nextStart)
+    │                   └── computeRuntime(p, env) + depth-2 lookahead penalty
+    ├── PermutationRouter router(env, threshold)
+    │   └── [for each consecutive placement pair]:
+    │       router.routeBetween(placements[i], placements[i+1])
+    │       ├── from.permutationTo(to) → perm[]
+    │       └── route(perm) → SwapCircuit
+    │           └── routeSubgraph(state, target, allNodes, adj_, levels, 0)
+    │               └── partition() → {G1, G2, channel}
+    └── placer.totalRuntime(result, swaps, swapCost)
+        = Σ sub_i.computeRuntime(p_i, env) + Σ swaps[j].depth() × swapCost
+```
+
+---
+
+### 10.2 verifyExample3() — 直接 computeRuntime 驗證
+
+verifyExample3() **不使用 CircuitPlacer**，直接手動建立 Placement，用於驗證 W 值與電路定義的正確性。
+
+**物件建立與 DP 執行（最佳映射 a→C2, b→C1, c→M）：**
+
+```cpp
+// env.W_[][] 矩陣（索引：M=0, C1=1, C2=2）
+//        M(0)  C1(1)  C2(2)
+// M(0) [  8     38    672  ]
+// C1(1)[  38     8     89  ]
+// C2(2)[ 672    89      1  ]
+
+// circ.gates_ = [
+//   {Single, q=0, T=1.0, lv=0},   // Y90 on a
+//   {Two, q1=0,q2=1, T=1.0, lv=1}, // ZZ ab
+//   {Single, q=2, T=1.0, lv=2},   // Y90 on c
+//   {Two, q1=1,q2=2, T=1.0, lv=3}, // ZZ bc
+//   {Single, q=1, T=1.0, lv=4},   // Y90 on b
+//   {Single, q=0, T=0.0, lv=5},   // Rz a (free)
+//   {Single, q=1, T=0.0, lv=5},   // Rz b (free)
+//   {Single, q=2, T=0.0, lv=5},   // Rz c (free)
+//   {Single, q=0, T=0.0, lv=6},   // Rz a (free)
+// ]
+
+// p.map_ = [2, 1, 0]  (q0→C2, q1→C1, q2→M)
+
+// computeRuntime DP 追蹤（time[a, b, c]）：
+// 初始:      [0,   0,   0]
+// Gate 0 (Y90 a→C2): time[0] += W[C2][C2]×1 = 1    → [1,   0,   0]
+// Gate 1 (ZZ a→C2,b→C1): cost=W[C2][C1]×1=89
+//   t = max(1,0)+89 = 90   time[0]=time[1]=90        → [90,  90,  0]
+// Gate 2 (Y90 c→M): time[2] += W[M][M]×1 = 8        → [90,  90,  8]
+// Gate 3 (ZZ b→C1,c→M): cost=W[C1][M]×1=38
+//   t = max(90,8)+38 = 128  time[1]=time[2]=128       → [90, 128, 128]
+// Gate 4 (Y90 b→C1): time[1] += W[C1][C1]×1 = 8     → [90, 136, 128]
+// Gates 5-8 (Rz, T=0): cost=0, no change
+// return max(90, 136, 128) = 136 ✓
+```
+
+次佳映射 (a→M, b→C2, c→C1) 的 DP 結果 = 770（詳見 Section 8 推導）。
+
+---
+
+### 10.3 runPlacement() — 核心輔助函數
+
+```cpp
+struct RunResult { double totalUnits; int subcircuitCount; };
+
+static RunResult runPlacement(const PhysicalEnvironment& env,
+                               const QuantumCircuit& circ,
+                               Weight threshold)
+```
+
+**Step 1：計算 swapCost**
+
+掃描所有 `(u,v)` 對，找最小非零 `twoQubitWeight(u,v)`，作為每個 SWAP 層的時間單位成本。
+
+乙醯氯範例：min(38, 672, 89) = 38（M-C1 最快）
+
+**Step 2：CircuitPlacer::place(circ)**
+
+```
+建立 CircuitPlacer placer(env, threshold)
+  → 內部只儲存 env_ 引用（const&）和 threshold_，O(1) 建構
+
+placer.place(circ) 主迴圈：
+  startGate = 0
+  while startGate < circ.numGates():
+    p = Placement(circ.numQubits(), env.numNuclei())
+    // p.map_ 全部初始化為 UNASSIGNED (-1)
+    
+    endGate = basicPlacement(circ, startGate, p)
+    // 返回此 subcircuit 的結束 gate 索引（exclusive）
+    // p 已填入此 subcircuit 的最佳 placement
+    
+    if endGate == startGate: endGate++  // 保證至少前進，避免無窮迴圈
+    
+    sub = circ.subcircuit(startGate, endGate)
+    // 從 gates_[startGate..endGate) 建立子電路，level 重新從 0 計算
+    
+    isLast = (endGate >= circ.numGates())
+    fineTuning(sub, p,
+               isLast ? nullptr : &circ,  // 最後一個 subcircuit 不做 look-ahead
+               endGate)                   // look-ahead 從下一段開始
+    
+    result.subcircuits.push_back(sub)
+    result.placements.push_back(p)
+    startGate = endGate
+  return result
+```
+
+**Step 3：PermutationRouter::routeBetween()**
+
+```
+PermutationRouter router(env, threshold)
+  → 建構子呼叫 env.fastAdjacency(threshold) → 建立 adj_[][]，O(n²)
+  → adj_[u] = {v : W(u,v) > 0 && W(u,v) <= threshold}
+
+for each i in [0, result.placements.size()-2]:
+  SwapCircuit sc = router.routeBetween(placements[i], placements[i+1])
+    → perm = placements[i].permutationTo(placements[i+1])
+    → route(perm): 初始 state=[0..n-1], target=perm
+    → routeSubgraph(state, target, allNodes, adj_, levels, 0)
+    → 去掉空 level，建立 SwapCircuit
+  swaps.push_back(sc)
+```
+
+**Step 4：totalRuntime 計算**
+
+```
+total = 0
+for i in [0, subcircuits.size()):
+    total += sub_i.computeRuntime(placements[i], env)  // 各 subcircuit 本身的 runtime
+for sc in swaps:
+    total += sc.depth() × swapCost  // 每個 SWAP 層的成本
+return { total, subcircuits.size() }
+```
+
+---
+
+### 10.4 runTableII() — 三列詳解
+
+**共用參數**：`threshold = 200`（論文 Table II 固定值）
+
+| | Row 1 | Row 2 | Row 3 |
+|---|---|---|---|
+| 環境建立方式 | `buildAcetylChloride()`（程式碼） | `fromFile("trans_crotonic_acid.env")` | `fromFile("histidine.env")` |
+| 電路建立方式 | `buildErrorCorrEncoding()`（程式碼） | `fromFile("five_bit_error_corr.circ")` | `fromFile("pseudo_cat_state.circ")` |
+| 環境規模 | 3 nuclei | 7 nuclei | 12 nuclei |
+| 電路規模 | 3q, 9 gates | 5q, 25 gates | 10q, 54 gates |
+| Fast graph (W≤200) | M-C1(38), C1-C2(89) | 所有 6 個 direct-bond pair | 多數 1J C-H/C-C pair |
+| subcircuit 數 | 1 | 1 | 多個（因部分交互在 fast graph 外） |
+| 輸出 | `r.totalUnits / 10000.0` → sec | 同左 | 同左 |
+
+**Row 1 的 basicPlacement 執行細節**（threshold=200）：
+
+```
+fastAdj(200)：
+  M(0)  ↔ C1(1)  [W=38  ≤ 200 ✓]
+  C1(1) ↔ C2(2)  [W=89  ≤ 200 ✓]
+  M(0)  ↔ C2(2)  [W=672 > 200 ✗, 不在 fast graph]
+
+error_corr 電路的 two-qubit gates：
+  Gate 1: ZZ(q0,q1) → pattern edge a-b
+  Gate 3: ZZ(q1,q2) → pattern edge b-c
+  → patternAdj 形成路徑圖 a-b-c
+
+findMonomorphisms(path a-b-c, path M-C1-C2):
+  有效嵌入：a→M,b→C1,c→C2 和 a→C2,b→C1,c→M
+  選最小 runtime → a→C2,b→C1,c→M (runtime=136)
+
+endGate = 9（所有 gate 都可嵌入）→ 1 個 subcircuit
+finalRuntime = 136 units + 0×swapCost = 136 units = 0.0136 s ✅
+```
+
+---
+
+### 10.5 runTableIII() — Threshold 掃描詳解
+
+```cpp
+const std::vector<Weight> thresholds = {50, 100, 200, 500, 1000, 10000};
+
+// 每個 threshold 執行一次 runPlacement
+// threshold 越高 → fast graph 邊越多 → 電路更容易嵌入 → subcircuit 數越少
+// threshold 越低 → fast graph 邊越少 → 切更多 subcircuit，但每段 runtime 低
+```
+
+**Threshold 對 fast graph 的影響（BOC-fluoride）：**
+
+```
+threshold=50:
+  fast edges: F-C1(W=7) ← 僅此一條
+  fast graph 不連通 → phaseest 的 K₅ 無法嵌入 → 頻繁切割 → 5 subcircuits
+
+threshold=100:
+  fast edges: F-C1(7), N-H(27), F-C2(37), C1-C2(38) 等
+  fast graph 仍不連通（{F,C1,C2} 和 {N,H} 分離）→ 5 subcircuits
+
+threshold=200:
+  fast edges: 加入 C2-N(185)
+  兩個 component 連通 → 3 subcircuits
+
+threshold=10000:
+  fast edges: 所有 pair → 全電路 1 個 subcircuit，無 SWAP overhead
+```
+
+**printTableIIIRow 的輸出格式**：
+
+```cpp
+// 格式：X.XXXX(N)，其中 N = subcircuit 數
+std::ostringstream cell;
+cell << std::fixed << std::setprecision(4) << secs << "(" << r.subcircuitCount << ")";
+// 例："0.2008(3)" → 0.2008 sec，3 個 subcircuits
+```
+
+---
+
+### 10.6 物件生命週期與所有權
+
+```
+main() stack frame
+│
+├── verifyExample3() ── 局部 scope，所有物件在函數返回時析構
+│   env(by value), circ(by value), p(by value), p2(by value)
+│
+├── runTableII()
+│   └── 每個 row 在 {...} 局部 scope 內
+│       env(by value) ── 存放 W_[][]（n×n doubles）
+│       circ(by value) ── 存放 gates_[]（vector）
+│       │
+│       └── runPlacement(env by const&, circ by const&, thr)
+│           ├── placer : CircuitPlacer
+│           │   ├── env_ : const PhysicalEnvironment& → 引用 env，不擁有
+│           │   └── threshold_ : Weight
+│           │
+│           │   placer.place() 產生：
+│           │   result : PlacementResult
+│           │   ├── subcircuits : vector<QuantumCircuit>
+│           │   │   └── 每個 QuantumCircuit 是從 circ 切出的深層複製
+│           │   └── placements : vector<Placement>
+│           │       └── 每個 Placement 在 fineTuning 後 push_back（by value）
+│           │
+│           ├── router : PermutationRouter
+│           │   ├── env_ : const PhysicalEnvironment& → 引用 env
+│           │   └── adj_ : vector<vector<NucleusID>> ── 建構子內建立，唯一深度資料
+│           │
+│           └── swaps : vector<SwapCircuit>
+│               └── 每個 SwapCircuit 擁有 levels_ : vector<SwapLevel>
+│                   └── SwapLevel = vector<pair<NucleusID,NucleusID>>
+│
+└── runTableIII() ── 結構同 runTableII，env+circ 每個 block 建立一次，threshold 迴圈共用
+```
+
+**關鍵規則**：
+- `CircuitPlacer` 和 `PermutationRouter` 持有 env 的 **const 引用**，生命週期依賴 env 存活
+- `PlacementResult::subcircuits` 包含 `QuantumCircuit` 的**值（深層複製）**，析構時釋放記憶體
+- `Placement` 在 `place()` 迴圈中以值傳遞（copy on push_back），fineTuning 直接修改 placement 引用
+
+---
+
+### 10.7 類別角色與相互關係總表
+
+| 類別 / 結構 | 定義位置 | 角色 | 關鍵方法 | 主要被誰建立 |
+|---|---|---|---|---|
+| `PhysicalEnvironment` | physical_env.h/.cpp | 物理裝置模型（W 矩陣） | `twoQubitWeight()`, `fastAdjacency()`, `fromFile()` | main.cpp（by value） |
+| `QuantumCircuit` | quantum_circuit.h/.cpp | 邏輯電路（gate 序列） | `computeRuntime()`, `subcircuit()`, `fromFile()` | main.cpp（by value）；`subcircuit()` 回傳子電路 |
+| `Gate` | gate.h | 單一 gate 描述 | `makeSingleGate()`, `makeTwoGate()` | `QuantumCircuit::addGate()` |
+| `Placement` | placement.h/.cpp | logical→physical 映射 | `assign()`, `get()`, `permutationTo()` | `CircuitPlacer::place()`（per subcircuit） |
+| `PlacementResult` | circuit_placer.h | 置放結果容器 | — | `CircuitPlacer::place()` 回傳 |
+| `CircuitPlacer` | circuit_placer.h/.cpp | Section V-A 演算法 | `place()`, `totalRuntime()` | `runPlacement()`（局部） |
+| `PermutationRouter` | permutation_router.h/.cpp | Section V-B 演算法 | `routeBetween()`, `route()` | `runPlacement()`（局部） |
+| `SwapCircuit` | swap_circuit.h/.cpp | SWAP 電路表示 | `addLevel()`, `depth()`, `apply()` | `PermutationRouter::route()` 回傳 |
+| `RunResult` | main.cpp（local struct） | 最終輸出封裝 | — | `runPlacement()` 回傳 |
+
+---
+
+## 11. 完整程式碼技術細節報告
+
+### 11.1 型別系統（types.h）
+
+```cpp
+using QubitID   = int;       // 邏輯量子位元索引（0-based，用於電路描述）
+using NucleusID = int;       // 物理原子核索引（0-based，用於物理環境）
+using Weight    = double;    // 時間成本（1/10000 s；W = round(10000/4J)）
+constexpr NucleusID UNASSIGNED = -1;  // 未指定 sentinel，用於 Placement.map_[]
+```
+
+**設計取捨**：使用 `using`（type alias）而非強型別包裝。
+- 優點：可與 `int`/`double` 直接比較，避免顯式轉換
+- 代價：編譯器不區分 QubitID 與 NucleusID，傳錯參數不報錯
+- 影響範圍：`Placement::get(QubitID)` 和 `Placement::assign(QubitID, NucleusID)` 是型別混用最易出錯的地方
+
+---
+
+### 11.2 Gate（gate.h）
+
+```cpp
+enum class GateType { Single, Two };
+
+struct Gate {
+    GateType type;   // 種類
+    QubitID  q1;     // 第一個 qubit（永遠有效）
+    QubitID  q2;     // 第二個 qubit（僅 type==Two 時有效，否則語意上為 UNASSIGNED）
+    Weight   time;   // T(G)：基礎執行時間（ZZ/Ry/Rx = 1.0；Rz = 0.0）
+    int      level;  // 電路 level（同 level 可平行，DP 計算中實際上不用）
+};
+```
+
+**`level` 欄位的實際用途**：
+- `addGate()` 中更新 `nLevels_ = max(nLevels_, g.level+1)`
+- `gatesAtLevel(lv)` 可按 level 過濾（目前主程式未呼叫）
+- `subcircuit()` 重新 base（`g.level -= baseLevel`）確保子電路 level 從 0 開始
+- `computeRuntime()` 按 gate 順序依序執行，**不依賴 level**；正確性由 DP 的 `max(time[q1], time[q2])` 保證
+
+---
+
+### 11.3 PhysicalEnvironment（physical_env.h/.cpp）
+
+**記憶體配置**：
+```
+W_ : vector<vector<double>>，大小 n×n
+  W_[u][u] = single-qubit cost（對角線）
+  W_[u][v] = W_[v][u] = two-qubit cost（對稱矩陣）
+  W_[u][v] = 0 → 該 interaction 未定義
+```
+
+**W=0 的語意差異**：
+
+| 情境 | W=0 的處理 |
+|---|---|
+| `computeRuntime()` | `cost = 0 × T = 0`，即此 gate 視為免費（不延遲任何 qubit） |
+| `fastAdjacency(threshold)` | `W=0` 不加入 fast graph（條件：`W > 0 && W <= threshold`） |
+| brute_force Row 3 的差異 | brute force 的 `computeRuntime` 對 W=0 pair 計算 0 成本，使某些映射 runtime 很低；演算法的 basicPlacement 不考慮這些 pair（不在 fast graph） |
+
+**fastAdjacency(threshold) 完整邏輯**：
+```cpp
+adj[u] = {v : u != v && W_[u][v] > 0 && W_[u][v] <= threshold}
+// 注意：自身（u==v）不加入 adj（單量子位元 W 不影響 fast graph 的邊）
+```
+
+**gateOperatingTime(baseTime, n1, n2)**：
+```cpp
+W = (n2 == UNASSIGNED) ? W_[n1][n1]  // single-qubit
+                        : W_[n1][n2]; // two-qubit
+return W * baseTime;
+// 此方法目前由 scoreplacement 間接用到（透過 computeRuntime），
+// 可單獨呼叫取得特定 gate 的精確成本
+```
+
+---
+
+### 11.4 QuantumCircuit（quantum_circuit.h/.cpp）
+
+**computeRuntime DP — 完整程式碼對應說明**：
+
+```cpp
+std::vector<double> time(nQubits_, 0.0);
+
+for (const Gate& g : gates_) {
+    if (g.type == GateType::Two) {
+        NucleusID nt = p.get(g.q1);
+        NucleusID nc = p.get(g.q2);
+        if (nt < 0 || nc < 0 || nt >= env.numNuclei() || nc >= env.numNuclei())
+            return 0.0;  // guard：UNASSIGNED 或越界 → 回傳 0（表示 invalid placement）
+
+        double cost = env.twoQubitWeight(nt, nc) * g.time;
+        // W=0 時 cost=0，gate 僅同步兩個 qubit 的時間，不增加 runtime
+        double t = std::max(time[g.q1], time[g.q2]) + cost;
+        time[g.q1] = time[g.q2] = t;
+        // 兩個 qubit 執行完成時間相同（串行依賴：後一個 two-qubit gate 必須等前一個完成）
+    } else {
+        NucleusID n = p.get(g.q1);
+        if (n < 0 || n >= env.numNuclei()) continue;  // guard
+        time[g.q1] += env.singleQubitWeight(n) * g.time;
+        // 累加（single-qubit gate 不需要等其他 qubit）
+    }
+}
+if (time.empty()) return 0.0;  // guard：0-qubit 電路
+return *std::max_element(time.begin(), time.end());
+// runtime = 最晚完成的 qubit 結束時間（critical path）
+```
+
+**subcircuit(beginIdx, endIdx)：**
+```cpp
+// 從 gates_[beginIdx..endIdx) 建立子電路
+// baseLevel = gates_[beginIdx].level（重新以此為 0）
+// 所有 gate 的 level 減去 baseLevel → 子電路 level 從 0 開始
+// 子電路保留原始 qubit ID（不重新編號）
+```
+
+---
+
+### 11.5 Placement（placement.h/.cpp）
+
+**permutationTo() 完整說明**：
+
+```cpp
+std::vector<int> Placement::permutationTo(const Placement& next) const {
+    std::vector<int> perm(nPhysical_);
+    for (int i = 0; i < nPhysical_; ++i) perm[i] = i;  // 初始化為 identity
+
+    for (QubitID q = 0; q < nLogical_; ++q) {
+        NucleusID src  = get(q);       // q 在 this（P_i）中的 nucleus
+        NucleusID dest = next.get(q);  // q 在 next（P_{i+1}）中的 nucleus
+        if (src == UNASSIGNED || dest == UNASSIGNED) continue;
+        if (src < 0 || src >= nPhysical_ || dest < 0 || dest >= nPhysical_) continue;
+        if (src != dest) perm[dest] = src;
+        // perm[dest] = src：「目前在 nucleus src 的值，要移到 nucleus dest」
+    }
+    return perm;
+}
+```
+
+**範例（3 nuclei，2 subcircuits）**：
+```
+P₁ = {q0→C2, q1→C1, q2→M}  → map_ = [2, 1, 0]
+P₂ = {q0→M,  q1→C2, q2→C1} → map_ = [0, 2, 1]
+
+permutationTo 計算：
+  q0: src=2(C2), dest=0(M)  → perm[0]=2
+  q1: src=1(C1), dest=2(C2) → perm[2]=1
+  q2: src=0(M),  dest=1(C1) → perm[1]=0
+
+perm = [2, 0, 1]
+語義：nucleus 0(M) 的值來自 nucleus 2(C2)
+      nucleus 1(C1) 的值來自 nucleus 0(M)
+      nucleus 2(C2) 的值來自 nucleus 1(C1)
+→ 這是一個 3-cycle：M←C2←C1←M
+```
+
+---
+
+### 11.6 CircuitPlacer — findMonomorphisms 詳細追蹤
+
+以 error-corr encoding + threshold=200（乙醯氯）為例：
+
+```
+patternAdj（需要嵌入的 logical 交互圖）：
+  qubit 0 (a): [1]       (a-b 邊)
+  qubit 1 (b): [0, 2]    (a-b 和 b-c 邊)
+  qubit 2 (c): [1]       (b-c 邊)
+  → 路徑圖：a - b - c
+
+fastAdj（threshold=200，fast physical graph）：
+  nucleus 0 (M):  [1]    (M-C1, W=38 ≤ 200)
+  nucleus 1 (C1): [0, 2] (M-C1, C1-C2, W=38,89 ≤ 200)
+  nucleus 2 (C2): [1]    (C1-C2, W=89 ≤ 200)
+  M-C2(W=672) 不在 fast graph
+
+backtrack(node=0)：映射 qubit a
+  t=0(M): 無前驅約束 → ok
+    backtrack(node=1)：映射 qubit b
+      t=1(C1): (a,b)∈pattern, (M,C1)∈fast → ok
+        backtrack(node=2)：映射 qubit c
+          t=2(C2): (a,c)?no; (b,c)∈pattern,(C1,C2)∈fast → ok → push [0,1,2]
+      t=2(C2): (a,b)∈pattern, (M,C2)∈fast? M的adj=[C1]，C2∉ → NOT OK ✗
+  t=1(C1): 無前驅約束 → ok
+    backtrack(node=1)：映射 qubit b
+      t=0(M): (a,b)∈pattern, (C1,M)∈fast → ok
+        backtrack(node=2)：映射 qubit c
+          t=2(C2): (a,c)?no; (b,c)∈pattern,(M,C2)∈fast? M的adj=[C1]→NO ✗
+      t=2(C2): (a,b)∈pattern, (C1,C2)∈fast → ok
+        backtrack(node=2)：映射 qubit c
+          t=0(M): (a,c)?no; (b,c)∈pattern,(C2,M)∈fast? C2的adj=[C1]→NO ✗
+  t=2(C2): 無前驅約束 → ok
+    backtrack(node=1)：映射 qubit b
+      t=0(M): (a,b)∈pattern,(C2,M)∈fast?C2的adj=[C1]→NO ✗
+      t=1(C1): (a,b)∈pattern,(C2,C1)∈fast? C2的adj=[C1] → ok
+        backtrack(node=2)：映射 qubit c
+          t=0(M): (a,c)?no; (b,c)∈pattern,(C1,M)∈fast → ok → push [2,1,0]
+
+results = [[0,1,2], [2,1,0]]
+→ 選最小 runtime：[2,1,0]（a→C2,b→C1,c→M，runtime=136）
+```
+
+---
+
+### 11.7 PermutationRouter — routeSubgraph 完整機制
+
+**state/target 的語意**：
+- `state[i]` = 目前 nucleus i 持有哪個邏輯值（初始 = identity [0,1,...,n-1]）
+- `target[i]` = nucleus i 最終應持有哪個邏輯值（由 permutationTo 計算的 perm）
+
+**hasMisplaced() 的判斷邏輯**：
+```
+hasMisplaced():
+  for n in G1:
+    isG2Bound(state[n])? → state[n] 的目標 nucleus 在 G2 → 此值需要跨邊移動 → misplaced
+  for n in G2:
+    isG1Bound(state[n])? → 同上邏輯
+```
+
+**Phase A 的每步規則（even step）**：
+```
+在 G1 的 BFS spanning tree 中，從葉往 root u 傳送 G2-bound 值：
+  for child in G1_leafToRootOrder:
+    if child == u (root): skip
+    par = tree1[child]
+    if state[child] == target[child]: skip  ← Leaf-target override（優化）
+    if isG2Bound(state[child]) AND NOT isG2Bound(state[par]):
+      SWAP(state[child], state[par])
+      output edge (child, par) to SwapLevel
+```
+條件 `NOT isG2Bound(state[par])` 防止把一個 G2-bound 值推到另一個 G2-bound 值上（避免互相阻擋）。
+
+**Phase A 的每步規則（odd step）**：
+```
+Channel step：SWAP across (u, v)
+  channelFast = (v in adj_[u])   ← 確認是真正的 fast edge（不連通圖保護）
+  if channelFast AND isG2Bound(state[u]) AND isG1Bound(state[v]):
+    SWAP(state[u], state[v])
+    output edge (u, v)
+```
+
+**Phase B 的平行遞迴**：
+```
+Phase B:
+  if G1.size() > 1:
+    routeSubgraph(state, target, G1, adj, levels, levelOffset + phaseACost)
+  if G2.size() > 1:
+    routeSubgraph(state, target, G2, adj, levels, levelOffset + phaseACost)
+// 兩次遞迴使用相同的 levelOffset + phaseACost
+// → G1 和 G2 的 SWAP 寫入 levels 的相同 index 區段（平行/交錯）
+// → 同一 level 的 SWAP 來自不同遞迴分支，確保 nucleus 不重複（各用 usedThisStep 保護）
+```
+
+---
+
+### 11.8 Header 依賴關係圖
+
+```
+types.h
+  ├── gate.h          (QubitID, Weight, UNASSIGNED)
+  ├── physical_env.h  (NucleusID, Weight)
+  └── placement.h     (QubitID, NucleusID, UNASSIGNED)
+         │
+         ├── quantum_circuit.h  (gate.h + physical_env.h + Placement forward decl)
+         │       └── circuit_placer.h  (quantum_circuit.h + physical_env.h + placement.h)
+         │
+         └── swap_circuit.h  (NucleusID)
+                 └── permutation_router.h  (physical_env.h + placement.h + swap_circuit.h)
+```
+
+main.cpp 只需 include `circuit_placer.h` 和 `permutation_router.h`（兩者已間接 include 所有其他 header）。
+
+---
+
+### 11.9 演算法不變量（Invariants）
+
+**PlacementResult 不變量**：
+- `subcircuits.size() == placements.size()`（必須相同）
+- 各 subcircuit 的 gate 範圍 `[startGate_i, startGate_{i+1})` 不重疊，合集 = 完整電路
+
+**Placement 注入性（Injectivity）不變量**：
+- `isValid()` = true：map_ 中所有非 UNASSIGNED 的 NucleusID 均不重複
+- `fineTuning` 的雙重迴圈在嘗試新 nucleus 前，檢查 `inUse`（是否被其他 qubit 使用）
+
+**findMonomorphisms 的結構不變量**：
+- 每個返回的 `mapping[q]` 是 injective（`used[]` 保證）
+- 若 `(u,v)` 在 patternAdj，則 `(mapping[u], mapping[v])` 必在 fastAdj
+
+**routeSubgraph 的收斂不變量**：
+- Phase A 結束後：`∀n∈G1: ¬isG2Bound(state[n])`，`∀n∈G2: ¬isG1Bound(state[n])`
+- Phase B 結束後：`∀n∈nodes: state[n] == target[n]`
+- maxSteps = `2*(nodes.size()+2)` 防止無窮迴圈（在 disconnected graph 保護下不會真正觸發）
+
+**SwapLevel 不重疊不變量**：
+- 同一個 SwapLevel 內，每個 NucleusID 最多出現一次
+- 由 `usedThisStep` set 保證（同一個 step 內，已用過的 nucleus 不再參與 SWAP）
+
+---
+
+### 11.10 關鍵數值常數說明
+
+| 常數 | 位置 | 值 | 意義 |
+|---|---|---|---|
+| `maxResults` | `findMonomorphisms()` | 100 | 最多評估 100 個 monomorphism 候選 |
+| `0.05` | `scoreplacement()` | 0.05 | Look-ahead 懲罰縮放係數（tiebreaker） |
+| `maxSteps` | `routeSubgraph()` | `2*(n+2)` | Phase A 最大步數上界（線性深度保證） |
+| `10000` | `totalRuntime → sec` | 10000 | W 單位換算分母（`sec = units / 10000`） |
+| `threshold` in `runTableII` | main.cpp | 200.0 | 論文 Table II 的固定 threshold 值 |
+| `UNASSIGNED` | types.h | -1 | 未分配的 NucleusID sentinel |
