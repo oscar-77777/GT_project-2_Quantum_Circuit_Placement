@@ -224,6 +224,9 @@ void CircuitPlacer::fineTuning(const QuantumCircuit& sub, Placement& placement,
         improved = false;
         double curScore = scoreplacement(sub, placement, fullCircuit, nextStart);
 
+        // qi: logical qubit whose nucleus assignment we try to change.
+        // nu: candidate physical nucleus to reassign qi onto.
+        // qj: other logical qubits; reject nu if already occupied (injectivity).
         for (int qi = 0; qi < nQ; ++qi) {
             NucleusID orig = placement.get(qi);
             for (NucleusID nu = 0; nu < nN; ++nu) {
@@ -234,7 +237,7 @@ void CircuitPlacer::fineTuning(const QuantumCircuit& sub, Placement& placement,
                     if (qj != qi && placement.get(qj) == nu) inUse = true;
                 if (inUse) continue;
 
-                placement.assign(qi, nu);
+                placement.assign(qi, nu); // tentative assignment
                 double sc = scoreplacement(sub, placement, fullCircuit, nextStart);
                 if (sc < curScore) {
                     curScore = sc;
